@@ -84,6 +84,7 @@ namespace StocksSimulation
                 {
                     AccountBallance += Investment.Ammount * todayData[(int)DataSet.DataColumns.Close];
                     Investment = null;
+                    Console.WriteLine("Money: {0}", AccountBallance);
                 }
             }
 
@@ -100,12 +101,14 @@ namespace StocksSimulation
                     if (Investment.AnalyzerRecord.PredictedChange.DataItem == DataItem.CloseOpenDif || Investment.AnalyzerRecord.PredictedChange.DataItem == DataItem.NegativeCloseOpenDif)
                     {
                         AccountBallance += Investment.Ammount * todayData[(int)DataSet.DataColumns.Close];
+                        Console.WriteLine("Money: {0}", AccountBallance);
                         onlyCloseOperations = true;
                         Investment = null;
                     }
                     else
                     {
                         AccountBallance += Investment.Ammount * todayData[(int)DataSet.DataColumns.Open];
+                        Console.WriteLine("Money: {0}", AccountBallance);
                         Investment = null;
                     }
                 }
@@ -148,6 +151,7 @@ namespace StocksSimulation
                 {
                     AccountBallance -= (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Open] * BuyActionPenalty));
                     AccountBallance += (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Close] * SellActionPenalty));
+                    Console.WriteLine("Money: {0}", AccountBallance);
                 }
             }
             else if (analyzerRecord.PredictedChange.DataItem == DataItem.OpenPrevCloseDif)
@@ -168,6 +172,7 @@ namespace StocksSimulation
                 {
                     AccountBallance -= (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Open] * BuyActionPenalty));
                     AccountBallance += (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Close] * SellActionPenalty));
+                    Console.WriteLine("Money: {0}", AccountBallance);
                 }
             }
             else if (analyzerRecord.PredictedChange.DataItem == DataItem.NegativeOpenPrevCloseDif)

@@ -254,7 +254,7 @@ namespace StocksData
 
             double currentDepth = predictions[localPredictionRow * (int)PredictionsDataSet.DataColumns.NumOfColumns];
             int depthStartRow = localPredictionRow;
-            int changesRow = 0;
+            //int changesRow = 0;
 
             for (int i = 0; i < Constants.AnalyzeChangesList.Count; i++)
             {
@@ -445,36 +445,9 @@ namespace StocksData
         #endregion
     }
 
-    internal class GPUAnalyzer// : ILGPUModule
+    internal class GPUAnalyzer : ILGPUModule
     {
-        //[DllImport("C:\\Ekans\\Stocks\\StocksGenius\\Debug\\GPUMethods.exe", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Auto)]
-        //public static extern void LoadAnalyzer([In] double[] dataset,
-        //                                             [In] int[] predictedCollections,
-        //                                             [In] int[] predictedCollectionsSizes,
-        //                                             [In] int[] analyzeCombinationsDataItems,
-        //                                             [In] int[] analyzeCombinationsRanges,
-        //                                             [In] int[] analyzesRanges,
-        //                                             int numOfCombinations,
-        //                                             int numOfAnalyzeCombinationsItems,
-        //                                             int dataSetWidth,
-        //                                             int numOfDataSetRows,
-        //                                             int predictedCollectionsMaxSize,
-        //                                             int numOfPredictedCombinations,
-        //                                             int numOfAnalyzesRanges,
-        //                                             double predictionErrorRange);
-
-        //[DllImport("C:\\Ekans\\Stocks\\StocksGenius\\Debug\\GPUMethods.exe", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Auto)]
-        //public static extern void AnalyzeCombinations([In] ulong[] dataset, [Out] double[] analyzeResults);
-
-        //[DllImport("C:\\Ekans\\Stocks\\StocksGenius\\Debug\\GPUMethods.exe", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Auto)]
-        //public static extern void UnloadAnalyzer();
-
-
         #region Members
-
-        private static TcpClient tcpClient;
-
-        private static NetworkStream netStream;
 
         private readonly int m_CombinationsNum = DataAnalyzer.GPUCycleSize;
 
@@ -482,628 +455,241 @@ namespace StocksData
 
         private readonly int m_DataSetNumOfRows;
 
-        private readonly int m_AnalyzesNum = DataAnalyzer.AnalyzeCombinationItems.Count;
+        private readonly int m_PredictionsNum = DataAnalyzer.PredictionItems.Count;
 
-        private readonly int m_PredictedCollectionsMaxSize;
+        private readonly int m_AnalyzesNum = DataAnalyzer.AnalyzeItems.Count;
 
-        private readonly int m_NumOfCombinationItems = DataAnalyzer.CombinationItems.Count;
+        private readonly double m_ErrorRange = DataAnalyzer.PredictionErrorRange;
 
-        private readonly int[] m_AnalyzeRanges = DataAnalyzer.AnalyzeRanges.ToArray();
-
-        private readonly int m_AnalyzeMaxCombinationSize = DataAnalyzer.AnalyzeMaxCombinationSize;
-
-        private const int NumOfThreads = 32;
-        
-        private readonly DeviceMemory<double> m_DataSet;
-        private readonly DeviceMemory<int> m_PredictedCollections;
-        private readonly DeviceMemory<int> m_PredictedCollectionsSizes;
-        private readonly DeviceMemory<int> m_AnalyzeCombinationsDataItems;
-        private readonly DeviceMemory<int> m_AnalyzeCombinationsRanges;
-        private readonly DeviceMemory<double> m_AnalyzeResults;
-        private readonly DeviceMemory<int> m_CorrectPredictions;
-        private readonly DeviceMemory<int> m_CombinationItems;
-        private readonly DeviceMemory<int> m_PredictionPtrs;
-
+        private DeviceMemory<int> m_DataItemsMapDM;
+        private DeviceMemory<double> m_DataSetDM;
+        private DeviceMemory<int> m_PredictionsDataItemsDM;
+        private DeviceMemory<int> m_PredictionsRangesDM;
+        private DeviceMemory<int> m_AnalyzesDataItemsDM;
+        private DeviceMemory<int> m_AnalyzesRangesDM;
+        private DeviceMemory<byte> m_PredictedChangesDM;
+        private DeviceMemory<byte> m_ActualChangesDM;
+        private DeviceMemory<double> m_AnalyzeResultsDM;
 
         #endregion
 
         #region Constructors
-        static GPUAnalyzer()
+
+        public GPUAnalyzer(double[] dataset, int[] predictionsDataItems, int[] predictionsRanges, int[] analyzesDataItems, int[] analyzesRanges)
+            : base(GPUModuleTarget.DefaultWorker)
         {
-            tcpClient = new TcpClient(new IPEndPoint(IPAddress.Loopback, 10012));
-            tcpClient.SendBufferSize = 1 << 27;
-            tcpClient.ReceiveBufferSize = 1 << 27;
-            tcpClient.Connect(new IPEndPoint(IPAddress.Loopback, 10011));
-            netStream = tcpClient.GetStream();
-            netStream.ReadTimeout = 100;
-        }
+            
+            m_DataSetNumOfRows= dataset.Length / m_DataSetWidth;
 
-        //public GPUAnalyzer(double[] dataset, int[] predictedCollections, int[] predictedCollectionsSizes, int[] analyzeCombinationsDataItems, int[] analyzeCombinationsRanges)
-        //    : base(GPUModuleTarget.DefaultWorker)
-        //{
-        //    m_DataSetNumOfRows = dataset.Length / m_DataSetWidth;
-        //    m_PredictedCollectionsMaxSize = predictedCollections.Length / predictedCollectionsSizes.Length;
-        //    m_DataSet = GPUWorker.Malloc(dataset);
-        //    m_PredictedCollections = GPUWorker.Malloc(predictedCollections);
-        //    m_PredictedCollectionsSizes = GPUWorker.Malloc(predictedCollectionsSizes);
-        //    m_AnalyzeCombinationsDataItems = GPUWorker.Malloc<int>(analyzeCombinationsDataItems);
-        //    m_AnalyzeCombinationsRanges = GPUWorker.Malloc<int>(analyzeCombinationsRanges);
-        //    m_AnalyzeResults = GPUWorker.Malloc<double>(m_AnalyzesNum * m_CombinationsNum);
-        //    m_CorrectPredictions = GPUWorker.Malloc<int>(NumOfThreads * m_AnalyzesNum);
-        //    m_CombinationItems = GPUWorker.Malloc<int>(NumOfThreads * m_AnalyzeMaxCombinationSize);
-        //    m_PredictionPtrs = GPUWorker.Malloc<int>(NumOfThreads * m_AnalyzeMaxCombinationSize);
-        //}
+            // Allocate memory for initialization
+            m_DataItemsMapDM = GPUWorker.Malloc(GetDataItemsMap());
+            m_DataSetDM = GPUWorker.Malloc(dataset);
+            m_PredictionsDataItemsDM = GPUWorker.Malloc(predictionsDataItems);
+            m_PredictionsRangesDM = GPUWorker.Malloc(predictionsRanges);
+            m_AnalyzesDataItemsDM = GPUWorker.Malloc(analyzesDataItems);
+            m_AnalyzesRangesDM = GPUWorker.Malloc(analyzesRanges);
+            m_PredictedChangesDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_PredictionsNum]);
+            m_ActualChangesDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_AnalyzesNum]);
 
-        public GPUAnalyzer(double[] dataset,
-                           int[] predictedCollections,
-                           int[] predictedCollectionsSizes,
-                           int[] analyzeCombinationsDataItems,
-                           int[] analyzeCombinationsRanges,
-                           int[] analyzesRanges,
-                           int numOfCombinations,
-                           int numOfAnalyzeCombinationsItems,
-                           int dataSetWidth,
-                           int numOfDataSetRows,
-                           int predictedCollectionsMaxSize,
-                           int numOfPredictedCombinations,
-                           int numOfAnalyzesRanges,
-                           double predictionErrorRange)
-        //   : base(GPUModuleTarget.DefaultWorker)
-        {
-            AnalyzerLoadData loadData = new AnalyzerLoadData();
-            loadData.GPUCommand = GPUCommand.LoadData;
-            loadData.GPUMessagesType = GPUMessagesType.AnalyzerMethods;
-            loadData.dataset = dataset;
-            loadData.predictedCollections = predictedCollections;
-            loadData.predictedCollectionsSizes = predictedCollectionsSizes;
-            loadData.analyzeCombinationsDataItems = analyzeCombinationsDataItems;
-            loadData.analyzeCombinationsRanges = analyzeCombinationsRanges;
-            loadData.analyzesRanges = analyzesRanges;
-            loadData.numOfCombinations = numOfCombinations;
-            loadData.numOfAnalyzeCombinationsItems = numOfAnalyzeCombinationsItems;
-            loadData.dataSetWidth = dataSetWidth;
-            loadData.numOfDataSetRows = numOfDataSetRows;
-            loadData.predictedCollectionsMaxSize = predictedCollectionsMaxSize;
-            loadData.numOfPredictedCombinations = numOfPredictedCombinations;
-            loadData.numOfAnalyzesRanges = numOfAnalyzesRanges;
-            loadData.predictionErrorRange = predictionErrorRange;
 
-            SendMessage(loadData);
+            // Initialize
+            var block = new dim3(1024);
+            var grid = new dim3(m_DataSetNumOfRows / block.x + 1);
+            var lp = new LaunchParam(grid, block);
+
+            GPULaunch(BuildPredictedChanges, lp, m_DataSetDM.Ptr, m_PredictedChangesDM.Ptr, m_DataItemsMapDM.Ptr, m_PredictionsDataItemsDM.Ptr, m_PredictionsRangesDM.Ptr); 
+            GPULaunch(BuildActualChanges, lp, m_DataSetDM.Ptr, m_ActualChangesDM.Ptr, m_DataItemsMapDM.Ptr, m_AnalyzesDataItemsDM.Ptr, m_AnalyzesRangesDM.Ptr);
+
+            //Free no more needed memory
+            m_DataItemsMapDM.Dispose();
+            m_DataSetDM.Dispose();
+            m_PredictionsDataItemsDM.Dispose();
+            m_PredictionsRangesDM.Dispose();
+
+            m_DataItemsMapDM = null;
+            m_DataSetDM = null;
+            m_PredictionsDataItemsDM = null;
+            m_PredictionsRangesDM = null;
+
+            //Allocate memory for analyzer caclucaltions
+            m_AnalyzeResultsDM = GPUWorker.Malloc<double>(m_CombinationsNum * m_AnalyzesNum);
         }
 
         #endregion
 
         #region Interface
 
-        public void AnalyzeCombinations(ulong[] combinations, ref double[] analyzeResults)
+        public void FreeGPU()
         {
-            AnalyzerActivateData activateData = new AnalyzerActivateData();
-            activateData.GPUCommand = GPUCommand.ActivateMethod;
-            activateData.GPUMessagesType = GPUMessagesType.AnalyzerMethods;
-            activateData.Combinations = combinations;
-             
-            SendMessage(activateData);
-            ReceiveMessage(ref analyzeResults);
+            m_AnalyzesDataItemsDM.Dispose();
+            m_AnalyzesRangesDM.Dispose();
+            m_PredictedChangesDM.Dispose();
+            m_ActualChangesDM.Dispose();
+            m_AnalyzeResultsDM.Dispose();
+
+            m_AnalyzesDataItemsDM = null;
+            m_AnalyzesRangesDM = null;
+            m_PredictedChangesDM = null;
+            m_ActualChangesDM = null;
+            m_AnalyzeResultsDM = null;
         }
 
-        public void Unload()
-        {
-            GPUMethodsMessage message = new GPUMethodsMessage();
-            message.GPUCommand = GPUCommand.FreeMemory;
-            message.GPUMessagesType = GPUMessagesType.AnalyzerMethods;
-
-            SendMessage(message);
-        }
-
-        private void SendMessage(IGPUMethodsMessage message)
-        {
-            int size = message.GetSize();
-            message.MessageSize = size;
-            int rowSize = 50000;
-            int numOfRows = size / rowSize + 1;
-            byte[] buffer = message.GetRowData();
-            AckMessage ack = new AckMessage(AckType.NotReceived);
-            do
+        public double[] AnalyzeCombinations(int[] combinations, int combinationSize, int combinationsNum, int minimumPredictionsForAnalyze)
+        {            
+            using (var dCombinations = GPUWorker.Malloc(combinations))
             {
-                netStream.Write(buffer, 0, size); 
-
-                ack = WaitForAck();
-            } while (ack.Ack != AckType.Received);
-        }
-
-        private AckMessage WaitForAck()
-        {
-            AckMessage ack = new AckMessage(AckType.NotReceived);
-            do
-            {
-                byte[] ackBuffer = new byte[ack.GetSize()];
-
-                try
-                {
-                    int received = netStream.Read(ackBuffer, 0, ackBuffer.Length);
-                    if (received != ack.GetSize())
-                    {
-                        return ack;
-                    }
-
-                    ack.MessageSize = BitConverter.ToInt32(ackBuffer, 0);
-                    ack.GPUCommand = (GPUCommand)BitConverter.ToInt32(ackBuffer, 4);
-                    ack.GPUMessagesType = (GPUMessagesType)BitConverter.ToInt32(ackBuffer, 8);
-                    ack.Ack = (AckType)BitConverter.ToInt32(ackBuffer, 12);
-                    if (ack.Ack == AckType.Received)
-                    {
-                        //Console.WriteLine("Ack Received");
-                        return ack;
-                    }
-                }
-                catch (Exception e)
-                {
-
-                    return ack;
-                }
-
-            } while (true);
-
-            return ack;
-        }
-        void SendAck(AckType ack)
-        {
-            AckMessage ackMessage = new AckMessage(ack);
-            netStream.Write(ackMessage.GetRowData(), 0, ackMessage.GetSize());
-        }
-
-        private void ReceiveMessage(ref double[] analyzeResults)
-        {
-            byte[] resultBuffer = new byte[1 << 27];
-            while (true)
-            {
-                try
-                {
-                    int received = netStream.Read(resultBuffer, 0, 1 << 27);
-                    int size = BitConverter.ToInt32(resultBuffer, 0);
-                    if (received != size)
-                    {
-                        SendAck(AckType.NotReceived);
-                    }
-                    else
-                    {
-                        SendAck(AckType.Received);
-                        break;
-                    }
-                }
-                catch (Exception e)
-                {                    
-                }
+                int numOfThreadsInBlock = 1024;
+                int blockY = m_AnalyzesNum;
+                int blockX = numOfThreadsInBlock / blockY;
+                int gridX = m_CombinationsNum / blockX + 1;
+                var block = new dim3(blockX, blockY);
+                var grid = new dim3(gridX);
+                var lp = new LaunchParam(grid, block);
+                GPULaunch(AnalyzeCombinations, lp, dCombinations.Ptr, combinationSize, m_AnalyzeResultsDM.Ptr, 
+                    m_PredictedChangesDM.Ptr, m_ActualChangesDM.Ptr, m_AnalyzesRangesDM.Ptr, combinationsNum, minimumPredictionsForAnalyze);
+                return m_AnalyzeResultsDM.Gather();
             }
-
-            Buffer.BlockCopy(resultBuffer, 4, analyzeResults, 0, analyzeResults.Length);
-
-            //for (int i = 0; i < analyzeResults.Length; i++)
-            //{
-            //    analyzeResults[i] = BitConverter.ToDouble(resultBuffer, i * 8 + 4);
-            //}
-
-            //while (!receiveClient.Client.Connected)
-            //{
-            //    //wait
-            //}
-            //IPEndPoint rec = new IPEndPoint(IPAddress.Any, 0);
-
-            //byte[] resultBuffer = receiveClient.Receive(ref rec);
-            //int size = BitConverter.ToInt32(resultBuffer, 0);
-
-            //int received = resultBuffer.Length;
-            //while (received < size)
-            //{
-            //    resultBuffer = resultBuffer.Concat(receiveClient.Receive(ref rec)).ToArray();
-            //}
-
-            //for (int i = 0; i < analyzeResults.Length; i++)
-            //{
-            //    analyzeResults[i] = BitConverter.ToDouble(resultBuffer, i * 8 + 4);
-            //}
         }
 
-        private void UnloadAnalyzer()
+        #endregion
+
+        #region Private Methods
+
+        [Kernel]
+        public void BuildPredictedChanges(deviceptr<double> dataSet, deviceptr<byte> predictedChanges, deviceptr<int> dataItemsMap, deviceptr<int> predictionsDataItems, deviceptr<int> predictionsRanges)
         {
-            throw new NotImplementedException();
-        }
+            var dataRow = blockIdx.x * blockDim.x + threadIdx.x;
+            deviceptr<byte> currentPredictedChanges = predictedChanges.Ptr(dataRow * m_PredictionsNum);
 
-        public static double[] AnalyzeCombinations(ulong[] combinations, double[] dataset, int[] predictedCollections, int[] predictedCollectionsSizes, int[] analyzeCombinationsDataItems, int[] analyzeCombinationsRanges)
-        {
-            //GPUMethodsAnalyzer(combinations, dataset, predictedCollections, predictedCollectionsSizes, analyzeCombinationsDataItems, analyzeCombinationsRanges);
-            //using (var loadedModule = new GPUAnalyzer(dataset, predictedCollections, predictedCollectionsSizes, analyzeCombinationsDataItems, analyzeCombinationsRanges))
-            //{
-            //      return loadedModule.AnalyzerMap(combinations, dataset, predictedCollections, predictedCollectionsSizes, analyzeCombinationsDataItems, analyzeCombinationsRanges);
-            //}
-            return new double[0];
-        }
-
-        //public double[] AnalyzeCombinations(ulong[] combinations, double[] dataset, int[] predictedCollections, int[] predictedCollectionsSizes, int[] analyzeCombinationsDataItems, int[] analyzeCombinationsRanges)
-        //{
-        //    return AnalyzerMap(combinations, dataset, predictedCollections, predictedCollectionsSizes, analyzeCombinationsDataItems, analyzeCombinationsRanges);
-        //}
-
-        //public double[] AnalyzerMap(ulong[] combinations, double[] dataset, int[] predictedCollections, int[] predictedCollectionsSizes, int[] analyzeCombinationsDataItems, int[] analyzeCombinationsRanges)
-        //{
-        //    using (var dDataSet = GPUWorker.Malloc(dataset))
-        //    using (var dPredictedCollections = GPUWorker.Malloc(predictedCollections))
-        //    using (var dPredictedCollectionsSizes = GPUWorker.Malloc(predictedCollectionsSizes))
-        //    using (var dAnalyzeCombinationsDataItems = GPUWorker.Malloc<int>(analyzeCombinationsDataItems))
-        //    using (var dAnalyzeCombinationsRanges = GPUWorker.Malloc<int>(analyzeCombinationsRanges))
-        //    using (var dAnalyzeResults = GPUWorker.Malloc<double>(m_AnalyzesNum * m_CombinationsNum))
-        //    using (var dCorrectPredictions = GPUWorker.Malloc<int>(NumOfThreads * m_AnalyzesNum))
-        //    using (var dCombinationItems = GPUWorker.Malloc<int>(NumOfThreads * m_AnalyzeMaxCombinationSize))
-        //    using (var dPredictionPtrs = GPUWorker.Malloc<int>(NumOfThreads * m_AnalyzeMaxCombinationSize))
-        //    using (var dCombinations = GPUWorker.Malloc(combinations))
-        //    {
-        //        var block = new dim3(NumOfThreads);
-        //        var grid = new dim3(combinations.Length / block.x);
-        //        var lp = new LaunchParam(grid, block);
-        //        GPULaunch(AnalyzerKernel, lp, dCombinations.Ptr, dDataSet.Ptr, dPredictedCollections.Ptr, dPredictedCollectionsSizes.Ptr, dAnalyzeCombinationsDataItems.Ptr,
-        //            dAnalyzeCombinationsRanges.Ptr, dAnalyzeResults.Ptr, dCorrectPredictions.Ptr, dCombinationItems.Ptr, dPredictionPtrs.Ptr);
-        //        return m_AnalyzeResults.Gather();
-        //    }
-        //}
-
-        //public double[] AnalyzerMap(ulong[] combinations)
-        //{
-
-        //    using (var dCombinations = GPUWorker.Malloc(combinations))
-        //    {
-        //        var block = new dim3(NumOfThreads);
-        //        var grid = new dim3(combinations.Length / block.x);
-        //        var lp = new LaunchParam(grid, block);
-        //        GPULaunch(AnalyzerKernel, lp, dCombinations.Ptr, m_DataSet.Ptr, m_PredictedCollections.Ptr, m_PredictedCollectionsSizes.Ptr, m_AnalyzeCombinationsDataItems.Ptr,
-        //            m_AnalyzeCombinationsRanges.Ptr, m_AnalyzeResults.Ptr, m_CorrectPredictions.Ptr, m_CombinationItems.Ptr, m_PredictionPtrs.Ptr);
-        //        return m_AnalyzeResults.Gather();
-        //    }
-        //}
-
-        //[Kernel]
-        //public void AnalyzerKernel(deviceptr<ulong> combinations, deviceptr<double> dataSet, deviceptr<int> predictedCollections, deviceptr<int> predictedCollectionsSizes, deviceptr<int> analyzeCombinationsDataItems,
-        //            deviceptr<int> analyzeCombinationsRanges, deviceptr<double> analyzeResults, deviceptr<int> correctPredictions, deviceptr<int> combinationItems, deviceptr<int> predictionPtrs)
-        //{
-        //    var combinationStart = blockIdx.x * blockDim.x + threadIdx.x;
-        //    var combinationStride = gridDim.x * blockDim.x;
-        //    int currentThread = threadIdx.x;
-
-        //    for (var combinationNum = combinationStart; combinationNum < m_CombinationsNum; combinationNum += combinationStride)
-        //    {
-        //        ulong combination = combinations[combinationNum];
-        //        int resultsStart = combinationNum * m_AnalyzesNum;
-
-        //        int combinationSize = 0;
-        //        int combinationItem = 0;
-        //        for (int i = 0; i < m_NumOfCombinationItems; i++)
-        //        {
-        //            if ((combination & ((ulong)1 << i)) != 0)
-        //            {
-        //                combinationSize++;
-        //                combinationItem = i;
-        //            }
-        //        }
-
-        //        if (combinationSize == 1)
-        //        {
-        //            int combinationRowPtr = 0;
-        //            int numOfCombinations = 0;
-        //            int combinationRow = 0;
-
-        //            while (combinationRowPtr < predictedCollectionsSizes[combinationItem])
-        //            {
-        //                combinationRow = predictedCollections[combinationItem * m_PredictedCollectionsMaxSize + combinationRowPtr];
-
-        //                for (int analyzeCombinationNum = 0; analyzeCombinationNum < m_AnalyzesNum; analyzeCombinationNum++)
-        //                {
-        //                    int dataItem = analyzeCombinationsDataItems[analyzeCombinationNum];
-        //                    int range = analyzeCombinationsRanges[analyzeCombinationNum];
-
-        //                    if (combinationRow > m_DataSetNumOfRows - range * 2)
-        //                    {
-        //                        break;
-        //                    }
-
-        //                    bool isDifFromCurrentDate = false;
-        //                    DataSet.DataColumns dataColumOf = DataSet.DataColumns.Open;
-        //                    DataSet.DataColumns dataColumFrom = DataSet.DataColumns.Open;
-        //                    bool bigger = true;
-        //                    double errorRange = DataAnalyzer.PredictionErrorRange;
-
-        //                    if ((DataItem)dataItem == DataItem.OpenChange)
-        //                    {
-        //                        isDifFromCurrentDate = false;
-        //                        dataColumOf = DataSet.DataColumns.Open;
-        //                        dataColumFrom = DataSet.DataColumns.Open;
-        //                    }
-        //                    else if ((DataItem)dataItem == DataItem.CloseChange)
-        //                    {
-        //                        isDifFromCurrentDate = false;
-        //                        dataColumOf = DataSet.DataColumns.Close;
-        //                        dataColumFrom = DataSet.DataColumns.Close;
-        //                    }
-        //                    else if ((DataItem)dataItem == DataItem.VolumeChange)
-        //                    {
-        //                        isDifFromCurrentDate = false;
-        //                        dataColumOf = DataSet.DataColumns.Close;
-        //                        dataColumFrom = DataSet.DataColumns.Close;
-        //                    }
-        //                    else if ((DataItem)dataItem == DataItem.CloseOpenDif)
-        //                    {
-        //                        isDifFromCurrentDate = true;
-        //                        dataColumOf = DataSet.DataColumns.Close;
-        //                        dataColumFrom = DataSet.DataColumns.Open;
-        //                    }
-        //                    else if ((DataItem)dataItem == DataItem.OpenPrevCloseDif)
-        //                    {
-        //                        isDifFromCurrentDate = false;
-        //                        dataColumOf = DataSet.DataColumns.Open;
-        //                        dataColumFrom = DataSet.DataColumns.Close;
-        //                    }
-        //                    else if ((DataItem)dataItem == DataItem.NegativeOpenChange)
-        //                    {
-        //                        isDifFromCurrentDate = false;
-        //                        dataColumOf = DataSet.DataColumns.Open;
-        //                        dataColumFrom = DataSet.DataColumns.Open;
-        //                        bigger = false;
-        //                        errorRange = -DataAnalyzer.PredictionErrorRange;
-        //                    }
-        //                    else if ((DataItem)dataItem == DataItem.NegativeCloseChange)
-        //                    {
-        //                        isDifFromCurrentDate = false;
-        //                        dataColumOf = DataSet.DataColumns.Close;
-        //                        dataColumFrom = DataSet.DataColumns.Close;
-        //                        bigger = false;
-        //                        errorRange = -DataAnalyzer.PredictionErrorRange;
-        //                    }
-        //                    else if ((DataItem)dataItem == DataItem.NegativeVolumeChange)
-        //                    {
-        //                        isDifFromCurrentDate = false;
-        //                        dataColumOf = DataSet.DataColumns.Close;
-        //                        dataColumFrom = DataSet.DataColumns.Close;
-        //                        bigger = false;
-        //                        errorRange = -DataAnalyzer.PredictionErrorRange;
-        //                    }
-        //                    else if ((DataItem)dataItem == DataItem.NegativeCloseOpenDif)
-        //                    {
-        //                        isDifFromCurrentDate = true;
-        //                        dataColumOf = DataSet.DataColumns.Close;
-        //                        dataColumFrom = DataSet.DataColumns.Open;
-        //                        bigger = false;
-        //                        errorRange = -DataAnalyzer.PredictionErrorRange;
-        //                    }
-        //                    else if ((DataItem)dataItem == DataItem.NegativeOpenPrevCloseDif)
-        //                    {
-        //                        isDifFromCurrentDate = false;
-        //                        dataColumOf = DataSet.DataColumns.Open;
-        //                        dataColumFrom = DataSet.DataColumns.Close;
-        //                        bigger = false;
-        //                        errorRange = -DataAnalyzer.PredictionErrorRange;
-        //                    }
-
-        //                    int dataOfStartPosition = isDifFromCurrentDate ? 0 : range;
-        //                    double sumOf = 0.0;
-        //                    double sumFrom = 0.0;
-        //                    for (int i = combinationRow; i < combinationRow + range; i++)
-        //                    {
-        //                        sumOf += dataSet[(combinationRow + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
-        //                        sumFrom += dataSet[combinationRow * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
-        //                    }
-
-        //                    double actualChange = (sumFrom - sumOf) / sumOf / range;
-
-        //                    if ((bigger && actualChange > errorRange) || (!bigger && actualChange < errorRange))
-        //                    {
-        //                        correctPredictions[analyzeCombinationNum]++;
-        //                    }
-        //                }
-
-        //                numOfCombinations++;
-        //                combinationRowPtr++;
-        //            }
-
-        //            for (int i = 0; i < m_AnalyzesNum; i++)
-        //            {
-        //                if (numOfCombinations > 0)
-        //                {
-        //                    analyzeResults[resultsStart + i] = correctPredictions[i] / numOfCombinations;
-        //                }
-        //            }
-        //        }
-        //        else
-        //        {
-        //            int currentItem = 0;
-        //            for (int i = 0; i < m_NumOfCombinationItems; i++)
-        //            {
-        //                if ((combination & ((ulong)1 << i)) != 0)
-        //                {
-        //                    combinationItems[currentThread * m_AnalyzeMaxCombinationSize + currentItem] = i;
-        //                    predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize + currentItem] = 0;
-        //                    currentItem++;
-        //                }
-        //            }
-
-        //            //DoAnalyzerCombination(resultsStart, combinationSize, currentThread);
-        //        }
-        //    }
-        //    }
-
-        //private void DoAnalyzerOneSizeCombination(int resultsStart, int combinationItem, int currentThread, deviceptr<double> dataSet, deviceptr<int> predictedCollections, deviceptr<int> predictedCollectionsSizes, deviceptr<int> analyzeCombinationsDataItems,
-        //            deviceptr<int> analyzeCombinationsRanges, deviceptr<double> analyzeResults, deviceptr<int> correctPredictions, deviceptr<int> combinationItems, deviceptr<int> predictionPtrs)
-        //{
-        //    int combinationRowPtr = 0;
-        //    int numOfCombinations = 0;
-        //    int combinationRow = 0;
-
-        //    while (combinationRowPtr < predictedCollectionsSizes[combinationItem])
-        //    {
-        //        combinationRow = predictedCollections[combinationItem * m_PredictedCollectionsMaxSize + combinationRowPtr];
-
-        //        for (int analyzeCombinationNum = 0; analyzeCombinationNum < m_AnalyzesNum; analyzeCombinationNum++)
-        //        {
-        //            int dataItem = analyzeCombinationsDataItems[analyzeCombinationNum];
-        //            int range = analyzeCombinationsRanges[analyzeCombinationNum];
-
-        //            if (combinationRow > m_DataSetNumOfRows - range * 2)
-        //            {
-        //                continue;
-        //            }
-
-        //            if (IsContainsPrediction(dataSet, dataItem, range, combinationRow, DataAnalyzer.PredictionErrorRange, -DataAnalyzer.PredictionErrorRange))
-        //            {
-        //                correctPredictions[currentThread * m_AnalyzesNum + analyzeCombinationNum]++;
-        //            }
-        //        }
-
-        //        numOfCombinations++;
-        //        combinationRowPtr++;
-        //    }
-
-        //    for (int i = 0; i < m_AnalyzesNum; i++)
-        //    {
-        //        if (numOfCombinations > 0)
-        //        {
-        //            analyzeResults[resultsStart + i] = correctPredictions[currentThread * m_AnalyzesNum + i] / numOfCombinations;
-        //        }
-        //    }
-        //}
-
-        //private void DoAnalyzerCombination(int resultsStart, int combinationSize, int currentThread, deviceptr<double> dataSet, deviceptr<int> predictedCollections, deviceptr<int> predictedCollectionsSizes, deviceptr<int> analyzeCombinationsDataItems,
-        //            deviceptr<int> analyzeCombinationsRanges, deviceptr<double> analyzeResults, deviceptr<int> correctPredictions, deviceptr<int> combinationItems, deviceptr<int> predictionPtrs)
-        //{
-        //    int combinationRow = 0;
-        //    int numOfCombinations = 0;
-
-        //    while ((combinationRow = GetNextCombinationRow(combinationSize, currentThread, dataSet, predictedCollections, predictedCollectionsSizes, analyzeCombinationsDataItems,
-        //            analyzeCombinationsRanges, analyzeResults, correctPredictions, combinationItems, predictionPtrs)) != -1)
-        //    {
-        //        for (int analyzeCombinationNum = 0; analyzeCombinationNum < m_AnalyzesNum; analyzeCombinationNum++)
-        //        {
-        //            int dataItem = analyzeCombinationsDataItems[analyzeCombinationNum];
-        //            int range = analyzeCombinationsRanges[analyzeCombinationNum];
-
-        //            if (combinationRow > m_DataSetNumOfRows - range * 2)
-        //            {
-        //                continue;
-        //            }
-
-        //            if (IsContainsPrediction(dataSet, dataItem, range, combinationRow, DataAnalyzer.PredictionErrorRange, -DataAnalyzer.PredictionErrorRange))
-        //            {
-        //                correctPredictions[currentThread * m_AnalyzesNum + analyzeCombinationNum]++;
-        //            }
-        //        }
-        //        numOfCombinations++;
-        //    }
-
-        //    for (int i = 0; i < m_AnalyzesNum; i++)
-        //    {
-        //        analyzeResults[resultsStart + i] = correctPredictions[currentThread * m_AnalyzesNum + i] / numOfCombinations;
-        //    }
-        //}
-
-        private int GetRangeNum(ulong analyzeCombinationItem)
-        {
-            for (int i = 1; i < m_AnalyzeRanges.Length; i++)
+            for (int predictionNum = 0; predictionNum < m_PredictionsNum; predictionNum++)
             {
-                if (((ulong)1 << (10 * i) > analyzeCombinationItem))
-                {
-                    return i - 1;
-                }
+                int columnFrom = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 0];
+                int columnOf = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 1];
+                int isDifFromPrevDate = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 2];
+                int isBigger = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 3];
+                int range = predictionsRanges[predictionNum];
+                deviceptr<double> currentDataSet = dataSet.Ptr((dataRow + range) * m_DataSetWidth);
+
+                currentPredictedChanges[predictionNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
+                        (byte)0 : currentPredictedChanges[predictionNum] = IsPrediction(currentDataSet, range, columnFrom, columnOf, isDifFromPrevDate, isBigger, -m_ErrorRange, m_ErrorRange);
+
             }
-
-            return m_AnalyzeRanges.Length - 1;
         }
 
-        private int GetNextCombinationRow(int combinationSize, int currentThread, deviceptr<double> dataSet, deviceptr<int> predictedCollections, deviceptr<int> predictedCollectionsSizes, deviceptr<int> analyzeCombinationsDataItems,
-                    deviceptr<int> analyzeCombinationsRanges, deviceptr<double> analyzeResults, deviceptr<int> correctPredictions, deviceptr<int> combinationItems, deviceptr<int> predictionPtrs)
+        [Kernel]
+        public void BuildActualChanges(deviceptr<double> dataSet, deviceptr<byte> actualChanges, deviceptr<int> dataItemsMap, deviceptr<int> analyzesDataItems, deviceptr<int> analyzesRanges)
         {
-            while (predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize] < predictedCollectionsSizes[combinationItems[currentThread * m_AnalyzeMaxCombinationSize]])
+            var dataRow = blockIdx.x * blockDim.x + threadIdx.x;
+            deviceptr<byte> currentActualChanges = actualChanges.Ptr(dataRow * m_AnalyzesNum);
+            deviceptr<double> currentDataSet = dataSet.Ptr(dataRow * m_DataSetWidth);
+
+            for (int analyzeNum = 0; analyzeNum < m_AnalyzesNum; analyzeNum++)
             {
-                for (int i = 0; i < combinationSize - 1; i++)
+                int pn = analyzeNum;
+                int columnFrom = dataItemsMap[analyzesDataItems[pn] * 4 + 0];
+                int columnOf = dataItemsMap[analyzesDataItems[pn] * 4 + 1];
+                int isDifFromPrevDate = dataItemsMap[analyzesDataItems[analyzeNum] * 4 + 2];
+                int isBigger = dataItemsMap[analyzesDataItems[analyzeNum] * 4 + 3];
+                int range = analyzesRanges[analyzeNum];
+
+                currentActualChanges[analyzeNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
+                    (byte)0 : IsPrediction(currentDataSet, range, columnFrom, columnOf, isDifFromPrevDate, isBigger, m_ErrorRange, -m_ErrorRange);
+            }
+        }
+
+        [Kernel]
+        public void AnalyzeCombinations(deviceptr<int> combinationItems, int combinationSize, deviceptr<double> analyzeResults, 
+            deviceptr<byte> predictedChanges, deviceptr<byte> actualChanges, deviceptr<int> analyzeRanges, int combinationsNum, int minimumPredictionsForAnalyze)
+        {
+            var combinationNum = blockIdx.x * blockDim.x + threadIdx.x;
+            var analyzeNum = threadIdx.y;
+
+            if (combinationNum < combinationsNum)
+            {
+                deviceptr<int> threadCombinationItems = combinationItems.Ptr(combinationNum * combinationSize);
+
+                double predictedChangesSum = 0;
+                double actualChangesSum = 0;
+                for (int rowNum = 0; rowNum < m_DataSetNumOfRows - analyzeRanges[analyzeNum] * 3; rowNum++)
                 {
-                    int j = i + 1;
-                    while (predictedCollections[combinationItems[currentThread * m_AnalyzeMaxCombinationSize + i] * m_PredictedCollectionsMaxSize + predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize + i]] > predictedCollections[combinationItems[currentThread * m_AnalyzeMaxCombinationSize + j] * m_PredictedCollectionsMaxSize +predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize + j]])
+                    int predictedChange = 1;
+                    for (int itemNum = 0; itemNum < combinationSize; itemNum++)
                     {
-                        predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize + j]++;
-
-                        if (predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize + j] < predictedCollectionsSizes[combinationItems[currentThread * m_AnalyzeMaxCombinationSize + j]])
-                        {
-                            return -1;
-                        }
+                        predictedChange *= predictedChanges[rowNum * m_PredictionsNum + threadCombinationItems[itemNum]];
                     }
-                }
 
-                bool match = true;
-                for (int i = 0; i < combinationSize - 1; i++)
-                {
-                    int j = i + 1;
-                    if (predictedCollections[combinationItems[currentThread * m_AnalyzeMaxCombinationSize + i] * m_PredictedCollectionsMaxSize + predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize + i]] != predictedCollections[combinationItems[currentThread * m_AnalyzeMaxCombinationSize + j] * m_PredictedCollectionsMaxSize + predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize + j]])
-                    {
-                        match = false;
-                        break;
-                    }
+                    predictedChangesSum += predictedChange;
+                    actualChangesSum += predictedChange * actualChanges[rowNum * m_AnalyzesNum + analyzeNum];
                 }
-                if (match)
-                {
-                    int matchRow =predictedCollections[combinationItems[currentThread * m_AnalyzeMaxCombinationSize] * m_PredictedCollectionsMaxSize + predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize]];
-                    predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize]++;
-
-                    return matchRow;
-                }
-
-                predictionPtrs[currentThread * m_AnalyzeMaxCombinationSize]++;
+                double analyzeResult = (predictedChangesSum > minimumPredictionsForAnalyze) ? actualChangesSum / predictedChangesSum : 0.0;
+                analyzeResults[combinationNum * m_AnalyzesNum + analyzeNum] = analyzeResult;
             }
-            return -1;
         }
 
-        public bool IsContainsPrediction(deviceptr<double> dataSet, int dataItem, int range, int dataRow, double upperErrorBorder, double lowerErrorBorder)
+        private byte IsPrediction(deviceptr<double> dataSet, int range, int dataColumFrom, int dataColumOf, int isDifFromPrevDate,  int isBigger, double biggerErrorBorder, double smallerErrorBorder)
         {
-            if ((DataItem)dataItem == DataItem.OpenChange
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false) > upperErrorBorder)
-            { return true; }
-            if ((DataItem)dataItem == DataItem.CloseChange
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, false) > upperErrorBorder)
-            { return true; }
-            if ((DataItem)dataItem == DataItem.VolumeChange
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, false) > upperErrorBorder)
-            { return true; }
-            if ((DataItem)dataItem == DataItem.CloseOpenDif
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, true) > upperErrorBorder)
-            { return true; }
-            if ((DataItem)dataItem == DataItem.OpenPrevCloseDif
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, false) > upperErrorBorder)
-            { return true; }
-            if ((DataItem)dataItem == DataItem.NegativeOpenChange
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false) < lowerErrorBorder)
-            { return true; }
-            if ((DataItem)dataItem == DataItem.NegativeCloseChange
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, false) < lowerErrorBorder)
-            { return true; }
-            if ((DataItem)dataItem == DataItem.NegativeVolumeChange
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, false) < lowerErrorBorder)
-            { return true; }
-            if ((DataItem)dataItem == DataItem.NegativeCloseOpenDif
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, true) < lowerErrorBorder)
-            { return true; }
-            if ((DataItem)dataItem == DataItem.NegativeOpenPrevCloseDif
-                && CalculateChange(dataSet, dataRow, range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, false) < lowerErrorBorder)
-            { return true; }
+            int ofRow = isDifFromPrevDate * range;
+            double sumOf = dataSet[(ofRow) * m_DataSetWidth + dataColumOf];
+            double sumFrom = dataSet[dataColumFrom];
+            //for (int i = 0; i < range; i++)
+            //{
+            //    sumOf += dataSet[(ofRow) * m_DataSetWidth + dataColumOf];
+            //    sumFrom += dataSet[dataColumFrom];
+            //}
 
-            return false;
+            return (byte)((isBigger == 1) ?
+                (((sumFrom - sumOf) / sumOf / range) > biggerErrorBorder) ? 1 : 0
+                :
+                (((sumFrom - sumOf) / sumOf / range) < smallerErrorBorder) ? 1 : 0);
         }
 
-        private double CalculateChange(deviceptr<double> dataSet, int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, bool isDifFromCurrentDate)
+        private int[] GetDataItemsMap()
         {
-            int dataOfStartPosition = isDifFromCurrentDate ? 0 : range;
-            double sumOf = 0.0;
-            double sumFrom = 0.0;
-            for (int i = dataRow; i < dataRow + range; i++)
-            {
-                sumOf += dataSet[(dataRow + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
-                sumFrom += dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
-            }
+            int mapLength = 4;
+            int[] dataItemsMap = new int[DataAnalyzer.DataItems.Count * mapLength];
 
-            return (sumFrom - sumOf) / sumOf / range;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 0] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 1] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 2] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 3] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 0] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 1] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 2] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 3] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 0] = (int)DataSet.DataColumns.Volume;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 1] = (int)DataSet.DataColumns.Volume;            
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 2] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 3] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 0] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 1] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 2] = 0;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 3] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 0] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 1] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 2] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 3] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 0] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 1] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 2] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 3] = 0;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 0] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 1] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 2] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 3] = 0;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 0] = (int)DataSet.DataColumns.Volume;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 1] = (int)DataSet.DataColumns.Volume;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 2] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 3] = 0;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeCloseOpenDif) * mapLength + 0] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeCloseOpenDif) * mapLength + 1] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeCloseOpenDif) * mapLength + 2] = 0;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeCloseOpenDif) * mapLength + 3] = 0;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 0] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 1] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 2] = 1;
+            dataItemsMap[DataAnalyzer.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 3] = 0;
+
+            return dataItemsMap;
         }
 
         #endregion

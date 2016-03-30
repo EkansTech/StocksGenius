@@ -22,7 +22,7 @@
     <DefineConstants>TRACE;DEBUG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
-    <PlatformTarget>x86</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
     <UseVSHostingProcess>false</UseVSHostingProcess>
   </PropertyGroup>
@@ -57,7 +57,6 @@
     <Reference Include="Bloomberglp.Blpapi">
       <HintPath>D:\Stocks\blpapi_dotnet_3.8.10.1\bin\Bloomberglp.Blpapi.dll</HintPath>
     </Reference>
-    <Reference Include="FSharp.Core, Version=4.4.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
     <Reference Include="QuandlCS">
       <HintPath>D:\Stocks\QuandlCS\QuandlCS\bin\Debug\QuandlCS.dll</HintPath>
     </Reference>
@@ -80,14 +79,11 @@
     <Compile Include="AnalyzeRecord.cs" />
     <Compile Include="BloombergDataSource.cs" />
     <Compile Include="Constants.cs" />
-    <Compile Include="DataAnalyzer - Copy.cs" />
     <Compile Include="DataAnalyzer.cs" />
-    <Compile Include="DataSetAnalyzesBackup.cs" />
     <Compile Include="DataSetAnalyzes.cs" />
     <Compile Include="DataSetPredictions.cs" />
     <Compile Include="DataSetChanges.cs" />
     <Compile Include="Definitions.cs" />
-    <Compile Include="GPUMethods - Copy.cs" />
     <Compile Include="GPUMethods.cs" />
     <Compile Include="outputWidth.cs" />
     <Compile Include="Program.cs" />
@@ -114,7 +110,9 @@
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\Alea.CUDA.2.2.0.3307\build\Alea.CUDA.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Alea.CUDA.2.2.0.3307\build\Alea.CUDA.targets'))" />
+    <Error Condition="!Exists('..\packages\Fody.1.28.3\build\Fody.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Fody.1.28.3\build\Fody.targets'))" />
   </Target>
+  <Import Project="..\packages\Fody.1.28.3\build\Fody.targets" Condition="Exists('..\packages\Fody.1.28.3\build\Fody.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

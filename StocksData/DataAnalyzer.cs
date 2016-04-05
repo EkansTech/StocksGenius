@@ -7,283 +7,39 @@ using System.Threading.Tasks;
 
 namespace StocksData
 {
-    #region Structs   
-
-    public class AnalyzerRecord
+    public class DataAnalyzer : Dictionary<ulong /*Combination*/, List<float>>
     {
-        #region Properties
-
-        public List<CombinationItem> Combination { get; set; }
-
-        public double PredictionCorrectness { get; set; }
-
-        public CombinationItem PredictedChange { get; set; }
-
-        #endregion
-    }
-
-    public struct CombinationItem
-    {
-        private int m_RangeNum;
-        public int Range;
-        public DataItem DataItem;
-
-        public CombinationItem(int range, DataItem combination)
-        {
-            m_RangeNum = DataAnalyzer.AnalyzeRanges.IndexOf(range);
-            Range = range;
-            DataItem = combination;
-        }
-
-        public CombinationItem(ulong combinationItem)
-        {
-            m_RangeNum = DataAnalyzer.AnalyzeRanges.Count - 1;
-            for (; m_RangeNum > 0; m_RangeNum--)
-            {
-                if ((((ulong)1) << (m_RangeNum * 10)) <= combinationItem)
-                {
-                    break;
-                }
-            }
-
-            Range = DataAnalyzer.AnalyzeRanges[m_RangeNum];
-            DataItem = (DataItem)(combinationItem / (((ulong)1) << (m_RangeNum * 10)));
-        }
-
-        public CombinationItem(string combinationItemString)
-        {
-            string[] stringParts = combinationItemString.Split('-');
-            Range = Convert.ToInt32(stringParts[0]);
-            m_RangeNum = DataAnalyzer.AnalyzeRanges.IndexOf(Range);
-            DataItem = (DataItem)Enum.Parse(typeof(DataItem), stringParts[1]);
-        }
-
-        public ulong ToULong()
-        {
-            return (((ulong)1) << (m_RangeNum * 10)) * (ulong)DataItem;
-        }
-
-        static public DataItem ULongItemToDataItem(ulong combinationItem)
-        {
-            int rangeNum = DataAnalyzer.AnalyzeRanges.Count - 1;
-            for (; rangeNum > 0; rangeNum--)
-            {
-                if ((((ulong)1) << (rangeNum * 10)) <= combinationItem)
-                {
-                    break;
-                }
-            }
-            
-            return (DataItem)(combinationItem / (((ulong)1) << (rangeNum * 10)));
-        }
-
-        static public int ULongItemToDataItemNum(ulong combinationItem)
-        {
-            return DataAnalyzer.DataItems.IndexOf(ULongItemToDataItem(combinationItem));
-        }
-
-        static public int ULongItemToRange(ulong combinationItem)
-        {
-            int rangeNum = DataAnalyzer.AnalyzeRanges.Count - 1;
-            for (; rangeNum > 0; rangeNum--)
-            {
-                if ((((ulong)1) << (rangeNum * 10)) <= combinationItem)
-                {
-                    break;
-                }
-            }
-
-            return  DataAnalyzer.AnalyzeRanges[rangeNum];
-        }
-
-        static public List<CombinationItem> ULongToCombinationItems(ulong combination)
-        {
-            List<CombinationItem> combinationItems = new List<CombinationItem>();
-            for (ulong combinationItem = 1; combinationItem <= (((ulong)1) << (DataAnalyzer.AnalyzeRanges.Count * 10)); combinationItem *= 2)
-            {
-                if ((combination & combinationItem) != 0)
-                {
-                    combinationItems.Add(new CombinationItem(combinationItem));
-                }
-            }
-
-            return combinationItems;
-        }
-
-        static public ulong CombinationItemsToULong(List<CombinationItem> combinationTimes)
-        {
-            ulong combination = 0;
-            foreach (CombinationItem combinationItem in combinationTimes)
-            {
-                combination |= combinationItem.ToULong();
-            }
-
-            return combination;
-        }
-
-        static public string CombinationToString(ulong combination)
-        {
-            if (combination == 0)
-            {
-                return string.Empty;
-            }
-
-            List<CombinationItem> combinationItems = ULongToCombinationItems(combination);
-
-            string combinationString = combinationItems[0].ToString();
-
-            for (int i = 1; i < combinationItems.Count; i++)
-            {
-                combinationString += "+" + combinationItems[i].ToString();
-            }
-
-            return combinationString;
-        }
-
-        static public List<CombinationItem> StringToItems(string combinationString)
-        {
-            string[] combinationItemsStrings = combinationString.Split('+');
-
-            if (combinationItemsStrings.Length == 0)
-            {
-                return null;
-            }
-
-            List<CombinationItem> combinationItems = new List<CombinationItem>();
-
-            foreach (string combinationItemString in combinationItemsStrings)
-            {
-                combinationItems.Add(new CombinationItem(combinationItemString));
-            }
-
-            return combinationItems;
-        }
-
-        static public ulong StringToCombinationULong(string combinationString)
-        {
-            string[] combinationItemsStrings = combinationString.Split('+');
-
-            if (combinationItemsStrings.Length == 0)
-            {
-                return 0;
-            }
-
-            ulong combination = 0;
-
-            foreach (string combinationItemString in combinationItemsStrings)
-            {
-                combination |= (new CombinationItem(combinationItemString)).ToULong();
-            }
-
-            return combination;
-        }
-
-        public override string ToString()
-        {
-            return Range.ToString() + "-" + DataItem.ToString();
-        }
-    }
-
-    #endregion
-
-    #region Enums
-    public enum ChangeType
-    {
-        Down,
-        Up
-    }
-
-    [Flags]
-    public enum DataItem
-    {
-        None = 0,
-        OpenChange = 1,
-        CloseChange = OpenChange * 2,
-        VolumeChange = CloseChange * 2,
-        CloseOpenDif = VolumeChange * 2,
-        OpenPrevCloseDif = CloseOpenDif * 2,
-        NegativeOpenChange = OpenPrevCloseDif * 2,
-        NegativeCloseChange = NegativeOpenChange * 2,
-        NegativeVolumeChange = NegativeCloseChange * 2,
-        NegativeCloseOpenDif = NegativeVolumeChange * 2,
-        NegativeOpenPrevCloseDif = NegativeCloseOpenDif * 2,
-    }
-
-    #endregion
-    public class DataAnalyzer : Dictionary<ulong /*Combination*/, List<double>>
-    {
-        #region Constants
-
-        public static readonly List<int> AnalyzeRanges = new List<int>()
-        {
-            1,
-            5,
-            20,
-            50,
-        };
-
-        public static readonly List<CombinationItem> AnalyzeItems = new List<CombinationItem>()
-        {
-            new CombinationItem(1, DataItem.CloseOpenDif),
-            new CombinationItem(1, DataItem.OpenPrevCloseDif),
-            new CombinationItem(1, DataItem.NegativeCloseOpenDif),
-            new CombinationItem(1, DataItem.NegativeOpenPrevCloseDif),
-            new CombinationItem(5, DataItem.CloseOpenDif),
-            new CombinationItem(5, DataItem.OpenPrevCloseDif),
-            new CombinationItem(5, DataItem.NegativeCloseOpenDif),
-            new CombinationItem(5, DataItem.NegativeOpenPrevCloseDif),
-            new CombinationItem(20, DataItem.CloseOpenDif),
-            new CombinationItem(20, DataItem.OpenPrevCloseDif),
-            new CombinationItem(20, DataItem.NegativeCloseOpenDif),
-            new CombinationItem(20, DataItem.NegativeOpenPrevCloseDif),
-        };
-
-        public const int AnalyzeMaxCombinationSize = 5;
-
-        public const string AnalyzerDataSetSuffix = "-Analyzer";
-
-        public const string AnalyzerDataSetsDir = "\\Analyzer\\";
-
-        public const double PredictionErrorRange = 0.002;
-
-        public const int MinimumPredictionsForAnalyze = 100;
-
-        public const int TestRange = 100;
-
-        public const double MinimumRelevantAnalyzeResult = 0.6;
-
-        public static readonly int GPUCycleSize = 256 * AnalyzeItems.Count;
-
-        public readonly static List<DataItem> DataItems = GetDataItems();
-
-        public static readonly List<ulong> PredictionItems = GetCombinations();
-
-        #endregion
-
         #region Members
 
         private Dictionary<ulong /*combination*/, List<int>> m_PredictedCollections = null;
 
         private ulong[] m_GPUCombinations = null;
-        private int[] m_GPUCombinationsItems = null;
+        private byte[] m_GPUCombinationsItems = null;
         private int m_GPUCombinationNum = 0;
+        private int m_GPUCyclesPerSize = 0;
+        private Dictionary<byte, List<ulong>> m_GPUBadCombinations = null;
+        private List<ulong> m_GPUSizeBadCombinations = null;
+        private int m_GPUCurrentBadCombinationSize = 1;
+        private List<int> m_GPUCurrentBadCombination;
 
         private GPUAnalyzer m_GPUAnalyzer = null;
+
+        private byte m_LastAnalyzedSize = 0;
 
         #endregion
 
         #region Properties
 
-        private Dictionary<int /*range*/, List<List<double>>> m_CalculatedPredictions = null;
+        private Dictionary<int /*range*/, List<List<float>>> m_CalculatedPredictions = null;
 
-        public Dictionary<int /*range*/, List<List<double>>> CalculatedPredictions
+        public Dictionary<int /*range*/, List<List<float>>> CalculatedPredictions
         {
             get { return m_CalculatedPredictions; }
             set { m_CalculatedPredictions = value; }
         }
 
 
-        public int NumOfDataColumns = AnalyzeItems.Count;
+        public int NumOfDataColumns = DSSettings.AnalyzeItems.Count;
 
         public int NumOfDataRows
         {
@@ -298,11 +54,26 @@ namespace StocksData
             set { m_AnalyzeDataSetName = value; }
         }
 
+        public int MinimumPredictionsForAnalyze
+        {
+            get
+            {
+                return (DataSet.NumOfRows * 0.01 < 100) ? 100 : (int)(DataSet.NumOfRows * 0.01);
+            }
+        }
+
         public DataSet DataSet { get; private set; }
+        public float GPULoadTime { get; internal set; }
 
         #endregion
 
         #region Constructors
+
+        private DataAnalyzer(DataAnalyzer dataAnalyzer)
+        {
+            DataSet = dataAnalyzer.DataSet;
+            AnalyzeDataSetName = dataAnalyzer.AnalyzeDataSetName;
+        }
 
         public DataAnalyzer(string filePath, DataSet dataSet)
         {
@@ -312,11 +83,17 @@ namespace StocksData
            // CaclulatePredictions();
         }
 
-        public DataAnalyzer(DataSet dataSet, bool useGPU = true)
+        public DataAnalyzer(DataSet dataSet, string analyzerFolder, bool useGPU = true)
         {
             DataSet = dataSet;
+            m_AnalyzeDataSetName = DataSet.DataSetName + DSSettings.AnalyzerDataSetSuffix;
+            string filePath = analyzerFolder + "\\" + AnalyzeDataSetName + ".csv";
 
-            DataSet.RemoveRange(0, TestRange * (int)DataSet.DataColumns.NumOfColumns);
+            if (File.Exists(filePath))
+            {
+                LoadFromFile(filePath);
+                m_LastAnalyzedSize = (byte)CombinationItem.ULongToCombinationItems(this.Last().Key).Count;
+            }
 
             LoadFromDataSet(useGPU);
         }
@@ -327,10 +104,9 @@ namespace StocksData
 
         public void LoadFromDataSet(bool useGPU)
         {
-            m_AnalyzeDataSetName = DataSet.DataSetName + AnalyzerDataSetSuffix;
-
             if (useGPU)
             {
+                GPULoadTime = 0;
                 AnalyzeGPU();
             }
             else
@@ -373,30 +149,31 @@ namespace StocksData
 
             ulong combination = CombinationItem.StringToCombinationULong(data[0]);
 
-            List<double> combinationAnalyze = new List<double>();
+            List<float> combinationAnalyze = new List<float>();
 
             for (int column = 1; column < data.Length; column++)
             {
-                combinationAnalyze.Add(Convert.ToDouble(data[column]));
+                combinationAnalyze.Add(Convert.ToSingle(data[column]));
             }
 
             Add(combination, combinationAnalyze);
         }
 
-        public List<AnalyzerRecord> GetBestPredictions(double effectivePredictionResult)
+        public List<PredictionRecord> GetBestPredictions(float effectivePredictionResult)
         {
-            List<AnalyzerRecord> analyzerRecords = new List<AnalyzerRecord>();
+            List<PredictionRecord> analyzerRecords = new List<PredictionRecord>();
             foreach (ulong combination in Keys)
             {
                 for (int dataColumn = 0; dataColumn < NumOfDataColumns; dataColumn++)
                 {
                     if (this[combination][dataColumn] >= effectivePredictionResult)
                     {
-                        analyzerRecords.Add(new AnalyzerRecord()
+                        analyzerRecords.Add(new PredictionRecord()
                         {
                             Combination = CombinationItem.ULongToCombinationItems(combination),
                             PredictionCorrectness = this[combination][dataColumn],
-                            PredictedChange = AnalyzeItems[dataColumn],
+                            PredictedChange = DSSettings.AnalyzeItems[dataColumn],
+                            DataSet = DataSet,
                         });
                     }
                 }
@@ -413,7 +190,7 @@ namespace StocksData
         {
             InitializeOneItemPredictedCollections();
 
-            for (int combinationSize = 2; combinationSize <= AnalyzeMaxCombinationSize; combinationSize++)
+            for (int combinationSize = 2; combinationSize <= DSSettings.AnalyzeMaxCombinationSize; combinationSize++)
             {
                 InitializePredictedCollectionsCPU(combinationSize);
             }
@@ -421,24 +198,24 @@ namespace StocksData
 
         private void InitializePredictedCollectionsCPU(int combinationSize, ulong combination = 0, int combinationPart = 0, int startPosition = 0)
         {
-            for (int i = startPosition; i < PredictionItems.Count - (combinationSize - combinationPart - 1); i++)
+            for (int i = startPosition; i < DSSettings.PredictionItems.Count - (combinationSize - combinationPart - 1); i++)
             {
-                if (!m_PredictedCollections.ContainsKey(PredictionItems[i]))
+                if (!m_PredictedCollections.ContainsKey(DSSettings.PredictionItems[i].ToULong()))
                 {
                     continue;
                 }
 
                 if (combinationPart == combinationSize - 1)
                 {
-                    List<int> predictions = CombineLists(m_PredictedCollections[combination], m_PredictedCollections[PredictionItems[i]]);
+                    List<int> predictions = CombineLists(m_PredictedCollections[combination], m_PredictedCollections[DSSettings.PredictionItems[i].ToULong()]);
                     if (predictions.Count >= MinimumPredictionsForAnalyze)
                     {
-                        m_PredictedCollections.Add(combination | PredictionItems[i], predictions);
+                        m_PredictedCollections.Add(combination | DSSettings.PredictionItems[i].ToULong(), predictions);
                     }
                 }
                 else
                 {
-                    combination |= PredictionItems[i];
+                    combination |= DSSettings.PredictionItems[i].ToULong();
 
                     if (!m_PredictedCollections.ContainsKey(combination))
                     {
@@ -447,7 +224,7 @@ namespace StocksData
 
                     InitializePredictedCollectionsCPU(combinationSize, combination, combinationPart + 1, i + 1);
 
-                    combination &= ~PredictionItems[i];
+                    combination &= ~DSSettings.PredictionItems[i].ToULong();
                 }
             }
         }
@@ -508,14 +285,14 @@ namespace StocksData
             }
 
             m_PredictedCollections = new Dictionary<ulong, List<int>>();
-            foreach (ulong combinationItemULong in PredictionItems.OrderBy(x => x))
+            foreach (CombinationItem combinationItem in DSSettings.PredictionItems.OrderBy(x => x))
             {
                 List<int> combinationPredictions = new List<int>();
-                CombinationItem combinationItem = new CombinationItem(combinationItemULong);
+                ulong combinationItemULong = combinationItem.ToULong();
 
                 for (int dataRow = 0; dataRow < DataSet.NumOfRows - combinationItem.Range * 3; dataRow++)
                 {
-                    if (IsContainsPrediction(combinationItem, dataRow + combinationItem.Range, -PredictionErrorRange, PredictionErrorRange))
+                    if (IsContainsPrediction(combinationItem, dataRow + combinationItem.Range, -DSSettings.PredictionErrorRange, DSSettings.PredictionErrorRange))
                     {
                         combinationPredictions.Add(dataRow);
                     }
@@ -528,7 +305,7 @@ namespace StocksData
             }
         }
 
-        public bool IsContainsPrediction(CombinationItem combinationItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
+        public bool IsContainsPrediction(CombinationItem combinationItem, int dataRow, float upperErrorBorder, float lowerErrorBorder)
         {
             if (combinationItem.DataItem == DataItem.OpenChange
                 && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false) > upperErrorBorder)
@@ -564,41 +341,15 @@ namespace StocksData
             return false;
         }
 
-        //private bool IsContainsPrediction(CombinationItem combinationItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
-        //{
-        //    if (combinationItem.DataItem == DataItem.OpenChange && m_CalculatedPredictions[combinationItem.Range][dataRow][0] > upperErrorBorder)
-        //    { return true; }
-        //    if (combinationItem.DataItem == DataItem.CloseChange && m_CalculatedPredictions[combinationItem.Range][dataRow][1] > upperErrorBorder)
-        //    { return true; }
-        //    if (combinationItem.DataItem == DataItem.VolumeChange && m_CalculatedPredictions[combinationItem.Range][dataRow][2] > upperErrorBorder)
-        //    { return true; }
-        //    if (combinationItem.DataItem == DataItem.CloseOpenDif && m_CalculatedPredictions[combinationItem.Range][dataRow][3] > upperErrorBorder)
-        //    { return true; }
-        //    if (combinationItem.DataItem == DataItem.OpenPrevCloseDif && m_CalculatedPredictions[combinationItem.Range][dataRow][4] > upperErrorBorder)
-        //    { return true; }
-        //    if (combinationItem.DataItem == DataItem.NegativeOpenChange && m_CalculatedPredictions[combinationItem.Range][dataRow][5] < lowerErrorBorder)
-        //    { return true; }
-        //    if (combinationItem.DataItem == DataItem.NegativeCloseChange && m_CalculatedPredictions[combinationItem.Range][dataRow][6] < lowerErrorBorder)
-        //    { return true; }
-        //    if (combinationItem.DataItem == DataItem.NegativeVolumeChange && m_CalculatedPredictions[combinationItem.Range][dataRow][7] < lowerErrorBorder)
-        //    { return true; }
-        //    if (combinationItem.DataItem == DataItem.NegativeCloseOpenDif && m_CalculatedPredictions[combinationItem.Range][dataRow][8] < lowerErrorBorder)
-        //    { return true; }
-        //    if (combinationItem.DataItem == DataItem.NegativeOpenPrevCloseDif && m_CalculatedPredictions[combinationItem.Range][dataRow][9] < lowerErrorBorder)
-        //    { return true; }
-
-        //    return false;
-        //}
-
-        private double CalculateChange(int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, bool isDifFromCurrentDate)
+        private float CalculateChange(int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, bool isDifFromCurrentDate)
         {
             int dataOfStartPosition = isDifFromCurrentDate ? 0 : range;
-            double sumOf = 0.0;
-            double sumFrom = 0.0;
+            float sumOf = 0;
+            float sumFrom = 0;
             for (int i = dataRow; i < dataRow + range; i++)
             {
-                sumOf += DataSet[(dataRow + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
-                sumFrom += DataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
+                sumOf += DataSet[(i + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
+                sumFrom += DataSet[i * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
             }
 
             return (sumFrom - sumOf) / sumOf / range;
@@ -617,35 +368,109 @@ namespace StocksData
                 Console.SetCursorPosition(0, Console.CursorTop - 1);
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.SetCursorPosition(0, Console.CursorTop - 1);
-                Console.WriteLine("Analyzed {0}%", (((double)i) / (double)m_PredictedCollections.Count * 100.0).ToString("0.00"));
+                Console.WriteLine("Analyzed {0}%", (((float)i) / (float)m_PredictedCollections.Count * 100.0).ToString("0.00"));
                 i++;
             }
         }
 
         private void AnalyzeGPU()
         {
-            InitializeOneItemPredictedCollections();
+            //InitializeOneItemPredictedCollections();
 
-            m_GPUCombinations = new ulong[GPUCycleSize];
-
+            m_GPUCombinations = new ulong[DSSettings.GPUCycleSize];
+            
+            DateTime timePoint = DateTime.Now;
             m_GPUAnalyzer = new GPUAnalyzer(DataSet.ToArray(), 
-                PredictionItems.Select(x => CombinationItem.ULongItemToDataItemNum(x)).ToArray(),
-                PredictionItems.Select(x => CombinationItem.ULongItemToRange(x)).ToArray(),
-                AnalyzeItems.Select(x => DataAnalyzer.DataItems.IndexOf(x.DataItem)).ToArray(),
-                AnalyzeItems.Select(x => x.Range).ToArray());
+                DSSettings.PredictionItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
+                DSSettings.PredictionItems.Select(x => x.Range).ToArray(),
+                DSSettings.AnalyzeItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
+                DSSettings.AnalyzeItems.Select(x => x.Range).ToArray(),
+                DSSettings.GPUCycleSize);
+            GPULoadTime += (float)(DateTime.Now - timePoint).TotalMilliseconds;
 
-            for (int combinationSize = 1; combinationSize <= AnalyzeMaxCombinationSize; combinationSize++)
+            m_GPUBadCombinations = new Dictionary<byte, List<ulong>>();
+
+            for (byte combinationSize = (byte)(m_LastAnalyzedSize + 1); combinationSize <= DSSettings.AnalyzeMaxCombinationSize; combinationSize++)
             {
-                m_GPUCombinationsItems = new int[GPUCycleSize * combinationSize];
-                List<int> currentCombinationItems = new List<int>(combinationSize);
+                m_GPUSizeBadCombinations = new List<ulong>();
+                m_GPUCurrentBadCombination = new List<int>();
+                for (int i = 0; i <= combinationSize; i++)
+                {
+                    m_GPUCurrentBadCombination.Add(0);
+                }
+                m_GPUCyclesPerSize = 0;
+                m_GPUCombinationsItems = new byte[DSSettings.GPUCycleSize * combinationSize];
+                List<byte> currentCombinationItems = new List<byte>(combinationSize);
                 AnalyzeGPU(combinationSize, currentCombinationItems);
+                int numOfCombinationsPerSize = DSSettings.GPUCycleSize * m_GPUCyclesPerSize + m_GPUCombinationNum;
                 RunGpuAnalyzerCycle(combinationSize);
+                Console.WriteLine("Number of combinations for size {0} is {1}", combinationSize, numOfCombinationsPerSize);
+
+                m_GPUBadCombinations.Add(combinationSize, m_GPUSizeBadCombinations);
             }
 
             m_GPUAnalyzer.FreeGPU();
         }
 
-        private void AnalyzeGPU(int combinationSize, List<int> currentCombinationItems, ulong combination = 0, int combinationPart = 0, int startPosition = 0)
+        public DataAnalyzer AnalyzeGPUTest()
+        {
+            DataAnalyzer dataAnalyzerTest = new DataAnalyzer(this);
+
+            foreach (ulong key in Keys)
+            {
+                dataAnalyzerTest.Add(key, null);
+            }
+
+            Dictionary<byte, Dictionary<ulong, byte[]>> gpuCombinationsItems = new Dictionary<byte, Dictionary<ulong, byte[]>>();
+
+            foreach (ulong combination in Keys)
+            {
+                List<CombinationItem> combinationItems = CombinationItem.ULongToCombinationItems(combination);
+                if (!gpuCombinationsItems.ContainsKey((byte)combinationItems.Count))
+                {
+                    gpuCombinationsItems.Add((byte)combinationItems.Count, new Dictionary<ulong, byte[]>());
+                }
+                gpuCombinationsItems[(byte)combinationItems.Count].Add(combination, combinationItems.Select(x => DSSettings.PredictionItemsMap[x]).ToArray<byte>());
+            }
+
+            foreach (byte combinationSize in gpuCombinationsItems.Keys)
+            {
+                byte[] combinations = new byte[gpuCombinationsItems[combinationSize].Count * combinationSize];
+                int i = 0;
+                foreach (ulong combination in gpuCombinationsItems[combinationSize].Keys)
+                {
+                    Array.Copy(gpuCombinationsItems[combinationSize][combination], 0, combinations, i * combinationSize, combinationSize);
+                    i++;
+                }
+
+                m_GPUAnalyzer = new GPUAnalyzer(DataSet.ToArray(),
+                    DSSettings.PredictionItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
+                    DSSettings.PredictionItems.Select(x => x.Range).ToArray(),
+                    DSSettings.AnalyzeItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
+                    DSSettings.AnalyzeItems.Select(x => x.Range).ToArray(),
+                    gpuCombinationsItems[combinationSize].Count);
+
+                float[] analyzeResultsArray = m_GPUAnalyzer.AnalyzeCombinationsTest(combinations.ToArray(), combinationSize, gpuCombinationsItems[combinationSize].Count, 0, DSSettings.TestRange);
+
+
+                m_GPUAnalyzer.FreeGPU();
+
+                List<float> analyzeResults= analyzeResultsArray.ToList();
+
+                i = 0;
+
+                foreach (ulong combination in gpuCombinationsItems[combinationSize].Keys)
+                {
+                    dataAnalyzerTest[combination] = analyzeResults.GetRange(i * NumOfDataColumns, NumOfDataColumns);
+                    i++;
+                }
+            }
+
+
+            return dataAnalyzerTest;
+        }
+
+        private void AnalyzeGPU(byte combinationSize, List<byte> currentCombinationItems, ulong combination = 0, byte combinationPart = 0, byte startPosition = 0)
         {
             if (combinationPart == combinationSize)
             {
@@ -653,19 +478,28 @@ namespace StocksData
                 return;
             }
 
-            for (int i = startPosition; i < PredictionItems.Count - (combinationSize - combinationPart - 1); i++)
+            for (byte i = startPosition; i < DSSettings.PredictionItems.Count - (combinationSize - combinationPart - 1); i++)
             {
-                combination |= PredictionItems[i];
+                combination |= DSSettings.PredictionItems[i].ToULong();
                 currentCombinationItems.Add(i);
 
-                AnalyzeGPU(combinationSize, currentCombinationItems, combination, combinationPart + 1, i + 1);
+                if (m_GPUBadCombinations.ContainsKey((byte)(combinationPart + 1)) 
+                    && m_GPUCurrentBadCombination[combinationPart + 1] < m_GPUBadCombinations[(byte)(combinationPart + 1)].Count 
+                    && combination == m_GPUBadCombinations[(byte)(combinationPart + 1)][m_GPUCurrentBadCombination[combinationPart + 1]])
+                {
+                    m_GPUCurrentBadCombination[combinationPart + 1]++;
+                }
+                else
+                {
+                    AnalyzeGPU(combinationSize, currentCombinationItems, combination, (byte)(combinationPart + 1), (byte)(i + 1));
+                }
 
-                combination &= ~PredictionItems[i];
+                combination &= ~DSSettings.PredictionItems[i].ToULong();
                 currentCombinationItems.Remove(i);
             }
         }
 
-        private void AddGPUCombination(ulong combination, int combinationSize, List<int> currentCombinationItems)
+        private void AddGPUCombination(ulong combination, byte combinationSize, List<byte> currentCombinationItems)
         {
             for (int i = 0; i < combinationSize; i++)
             {
@@ -675,96 +509,74 @@ namespace StocksData
             m_GPUCombinations[m_GPUCombinationNum] = combination;
             m_GPUCombinationNum++;
 
-            if (m_GPUCombinationNum == GPUCycleSize)
+            if (m_GPUCombinationNum == DSSettings.GPUCycleSize)
             {
                 RunGpuAnalyzerCycle(combinationSize);
             }
         }
 
-        private void RunGpuAnalyzerCycle(int combinationSize)
+        private void RunGpuAnalyzerCycle(byte combinationSize)
         {
-            double[] analyzeResultsArray = m_GPUAnalyzer.AnalyzeCombinations(m_GPUCombinationsItems, combinationSize, m_GPUCombinationNum, MinimumPredictionsForAnalyze);
+            m_GPUCyclesPerSize++;
+            DateTime timePoint = DateTime.Now;
+            float[] analyzeResultsArray = m_GPUAnalyzer.AnalyzeCombinations(m_GPUCombinationsItems, combinationSize, m_GPUCombinationNum, MinimumPredictionsForAnalyze);
+            GPULoadTime += (float)(DateTime.Now - timePoint).TotalMilliseconds;
+            Console.WriteLine("{0} seconds for {1} combinations", (DateTime.Now - timePoint).TotalMilliseconds / 1000, m_GPUCombinationNum);
 
-            List<double> analyzeResults = analyzeResultsArray.ToList();
+            List<float> analyzeResults = analyzeResultsArray.ToList();
 
             for (int combinationNum = 0; combinationNum < m_GPUCombinationNum; combinationNum++)
             {
-                for (int resultNum = 0; resultNum < AnalyzeItems.Count; resultNum++)
+                bool badCombination = true;
+                for (int resultNum = 0; resultNum < DSSettings.AnalyzeItems.Count; resultNum++)
                 {
-                    if (analyzeResults[combinationNum * AnalyzeItems.Count + resultNum] > MinimumRelevantAnalyzeResult)
+                    if (analyzeResults[combinationNum * DSSettings.AnalyzeItems.Count + resultNum] > DSSettings.MinimumRelevantAnalyzeResult)
                     {
-                        Add(m_GPUCombinations[combinationNum], analyzeResults.GetRange(combinationNum * AnalyzeItems.Count, AnalyzeItems.Count));
+                        Add(m_GPUCombinations[combinationNum], analyzeResults.GetRange(combinationNum * DSSettings.AnalyzeItems.Count, DSSettings.AnalyzeItems.Count));
+                        badCombination = false;
                         break;
                     }
+
+                    if (analyzeResults[combinationNum * DSSettings.AnalyzeItems.Count + resultNum] > DSSettings.GPUHopelessPredictionLimit)
+                    {
+                        badCombination = false;
+                    }
+                }
+
+                if (badCombination)
+                {
+                    m_GPUSizeBadCombinations.Add(m_GPUCombinations[combinationNum]);
                 }
             }
             
             m_GPUCombinationNum = 0;
         }
 
-        private void CaclulatePredictions()
-        {
-            m_CalculatedPredictions = new Dictionary<int, List<List<double>>>();
-            foreach (int range in AnalyzeRanges)
-            {
-                List<List<double>> rangePredictions = new List<List<double>>();
-
-                for (int dataRow = 0; dataRow < DataSet.NumOfRows - range * 2; dataRow++)
-                {
-                    List<double> rowPredictions = new List<double>();
-                    rowPredictions.Add(CalculateChange(dataRow, range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false));
-                    rowPredictions.Add(CalculateChange(dataRow, range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, false));
-                    rowPredictions.Add(CalculateChange(dataRow, range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, false));
-                    rowPredictions.Add(CalculateChange(dataRow, range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, true));
-                    rowPredictions.Add(CalculateChange(dataRow, range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, false));
-
-                    rangePredictions.Add(rowPredictions);
-                }
-
-                m_CalculatedPredictions.Add(range, rangePredictions);
-            }
-        }
-
-        private static List<DataItem> GetDataItems()
+        internal static List<DataItem> GetDataItems()
         {
             List<DataItem> dataItems = typeof(DataItem).GetEnumValues().Cast<DataItem>().ToList();
             dataItems.Remove(dataItems.First());
             return dataItems;
         }
 
-        private static List<ulong> GetCombinations()
-        {
-            List<ulong> combinations = new List<ulong>();
-            
-            for (int range = 0; range < AnalyzeRanges.Count; range++)
-            {
-                for (int dataItem = 0; dataItem < DataItems.Count; dataItem++)
-                {
-                    combinations.Add(new CombinationItem(AnalyzeRanges[range], DataItems[dataItem]).ToULong());
-                }
-            }
-
-            return combinations;
-        }
-
         private void DoAnalyzeCombination(ulong combination)
         {
-            double[] correctPredictions = new double[AnalyzeItems.Count];
+            float[] correctPredictions = new float[DSSettings.AnalyzeItems.Count];
 
-            for (int i = 0; i < AnalyzeItems.Count; i++)
+            for (int i = 0; i < DSSettings.AnalyzeItems.Count; i++)
             {
-                correctPredictions[i] = 0.0;
+                correctPredictions[i] = 0.0F;
             }
 
             for (int i = 0; i < m_PredictedCollections[combination].Count; i++)
             {
-                for (int analyzeCombinationNum = 0; analyzeCombinationNum < AnalyzeItems.Count; analyzeCombinationNum++)
+                for (int analyzeCombinationNum = 0; analyzeCombinationNum < DSSettings.AnalyzeItems.Count; analyzeCombinationNum++)
                 {
-                    if (m_PredictedCollections[combination][i] > DataSet.NumOfRows - AnalyzeItems[analyzeCombinationNum].Range * 2)
+                    if (m_PredictedCollections[combination][i] > DataSet.NumOfRows - DSSettings.AnalyzeItems[analyzeCombinationNum].Range * 2)
                     {
                         break;
                     }
-                    if (IsContainsPrediction(AnalyzeItems[analyzeCombinationNum], m_PredictedCollections[combination][i], PredictionErrorRange, -PredictionErrorRange))
+                    if (IsContainsPrediction(DSSettings.AnalyzeItems[analyzeCombinationNum], m_PredictedCollections[combination][i], DSSettings.PredictionErrorRange, -DSSettings.PredictionErrorRange))
                     {
                         correctPredictions[analyzeCombinationNum]++;
                     }
@@ -772,12 +584,12 @@ namespace StocksData
             }
 
             bool containsRelevantResults = false;
-            List<double> analyzeResults = new double[AnalyzeItems.Count].ToList();
+            List<float> analyzeResults = new float[DSSettings.AnalyzeItems.Count].ToList();
 
-            for (int i = 0; i < AnalyzeItems.Count; i++)
+            for (int i = 0; i < DSSettings.AnalyzeItems.Count; i++)
             {
                 analyzeResults[i] = correctPredictions[i] / m_PredictedCollections[combination].Count;
-                if (analyzeResults[i] > MinimumRelevantAnalyzeResult)
+                if (analyzeResults[i] > DSSettings.MinimumRelevantAnalyzeResult)
                 {
                     containsRelevantResults = true;
                 }
@@ -805,9 +617,9 @@ namespace StocksData
         {
             string columnNames = "Combination";
 
-            for (int changePrediction = 0; changePrediction < AnalyzeItems.Count; changePrediction++)
+            for (int changePrediction = 0; changePrediction < DSSettings.AnalyzeItems.Count; changePrediction++)
             {
-                columnNames += "," + AnalyzeItems[changePrediction].ToString();
+                columnNames += "," + DSSettings.AnalyzeItems[changePrediction].ToString();
             }
 
             return columnNames;

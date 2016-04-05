@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace StocksData
 {
-    public class DataSet : List<double>
+    public class DataSet : List<float>
     {
         #region Enums
 
@@ -62,16 +62,28 @@ namespace StocksData
         {
         }
 
-        public DataSet(string filePath)
+        public DataSet(string filePath, TestDataAction testDataAction = TestDataAction.None)
         {
             LoadDataFromFile(filePath);
             m_DataSetName = Path.GetFileNameWithoutExtension(filePath);
+
+            switch (testDataAction)
+            {
+                case TestDataAction.None:
+                    break;
+                case TestDataAction.RemoveTestData:
+                    RemoveRange(0, DSSettings.TestRange * (int)DataColumns.NumOfColumns);
+                    break;
+                case TestDataAction.LeaveOnlyTestData:
+                    RemoveRange(DSSettings.TestRange * 2 * (int)DataColumns.NumOfColumns, Count - DSSettings.TestRange * 2 * (int)DataColumns.NumOfColumns);
+                    break;
+            }
         }
 
         #endregion
 
         #region Interface
-        public List<double> GetDayData(int rowNumber)
+        public List<float> GetDayData(int rowNumber)
         {
             return GetRange(rowNumber * (int)DataColumns.NumOfColumns, (int)DataColumns.NumOfColumns);
         }
@@ -104,7 +116,7 @@ namespace StocksData
                 }
                 else
                 {
-                    Add(Convert.ToDouble(data[i]));
+                    Add(Convert.ToSingle(data[i]));
                 }
             }
         }

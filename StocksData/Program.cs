@@ -13,7 +13,7 @@ namespace StocksData
         {
             //Alea.CUDA.Settings.Instance.JITCompile.Level = "Diagnostic";
             StocksData stockData = new StocksData("C:\\Ekans\\Stocks\\Quandl\\");
-            stockData.BuildDataSetPredictions();
+            stockData.BuildiForexAnalyzer();
         }
     }
 }

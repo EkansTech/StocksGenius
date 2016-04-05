@@ -9,43 +9,55 @@ namespace StocksSimulation
 {
     public class AnalyzerSimulator
     {
-        #region Constants
-        
-        public const double EffectivePredictionResult = 0.68;
-
-        public const double BuyActionPenalty = 1.002;
-
-        public const double SellActionPenalty = 0.998;
-
-        public const double Profit = 1.004;
-
-        #endregion
-
         #region Members
 
         private int m_HoldingSharesAmmount = 0;
+
+        private int m_NumOfOperations = 0;
+
+        List<PredictionRecord> m_AnalyzerRecords = new List<PredictionRecord>();
+
+        private DateTime m_SimulationDate;
+
+        private float m_MaxAccountBalance = 0.0F;
+
+        private float m_MinAccountBalance = 0.0F;
 
         #endregion
 
         #region Properties
 
-        public DataSet DataSet { get; set; }
+        public Dictionary<string, DataSet> DataSets { get; set; }
+        public Dictionary<string, DataAnalyzer> DataAnalyzers { get; set; }
 
-        public DataAnalyzer DataAnalyzer { get; set; }
+        public float AccountBallance { get; set; }
 
-        public double AccountBallance { get; set; }
+        public float TotalProfit { get; set; }
 
-        public Investment Investment { get; set; }
+        public List<Investment> Investments { get; set; }
 
         #endregion
 
         #region Constructors
 
-        public AnalyzerSimulator(DataSet dataSet, DataAnalyzer dataAnalyzer)
+        public AnalyzerSimulator(List<string> stocksFiles, string datasetsFolder, string dataAnalyzersFolder)
         {
-            DataSet = dataSet;
-            DataAnalyzer = dataAnalyzer;
-            Investment = null;
+            DataSets = new Dictionary<string, DataSet>();
+            DataAnalyzers = new Dictionary<string, DataAnalyzer>();
+            m_NumOfOperations = 0;
+            foreach (string stockFile in stocksFiles)
+            {
+                DataSet dataSet = new DataSet(datasetsFolder + stockFile, TestDataAction.LeaveOnlyTestData);
+                DataAnalyzer dataAnalyzer = new DataAnalyzer(dataAnalyzersFolder + dataSet.DataSetName + DSSettings.AnalyzerDataSetSuffix + ".csv", dataSet);
+                DataSets.Add(dataSet.DataSetName, dataSet);
+                DataAnalyzers.Add(dataSet.DataSetName, dataAnalyzer);
+                m_AnalyzerRecords.AddRange(dataAnalyzer.GetBestPredictions(SimSettings.EffectivePredictionResult));
+            }
+
+            m_AnalyzerRecords = m_AnalyzerRecords.OrderByDescending(x => x.PredictionCorrectness).ToList();
+            Investments = new List<StocksSimulation.Investment>();
+            AccountBallance = 0.0F;
+            TotalProfit = 0.0F;
         }
 
         #endregion
@@ -54,154 +66,284 @@ namespace StocksSimulation
 
         public void Simulate()
         {
-            List<AnalyzerRecord> analyzerRecords = DataAnalyzer.GetBestPredictions(EffectivePredictionResult);
+            m_MaxAccountBalance = 0.0F;
+            m_MinAccountBalance = 0.0F;
+            Log.AddMessage("Simulating, Investment money: {0}", AccountBallance);
 
-            AccountBallance = 10000;
-
-            Console.WriteLine("Simulating: {0}, Investment money: {1}", DataSet.DataSetName, AccountBallance);
-
-            for (int dataSetRow = DataAnalyzer.TestRange; dataSetRow >= 0; dataSetRow--)
+            for (int dataSetRow = DSSettings.TestRange; dataSetRow >= 0; dataSetRow--)
             {
-                RunSimulationCycle(dataSetRow, analyzerRecords);
+                m_SimulationDate = new DateTime((long)DataSets.Values.First().GetDayData(dataSetRow)[0]);
+                Log.AddMessage("Trade date: {0}", m_SimulationDate.ToShortDateString());
+                RunSimulationCycle(dataSetRow);
             }
 
-            Console.WriteLine("Final ammount of money: {0}", AccountBallance);
+            Log.AddMessage("Final ammount of money: {0}", AccountBallance);
+            Log.AddMessage("Max account balance = {0}, min account balance = {1}", m_MaxAccountBalance, m_MinAccountBalance);
+        }
+
+        public void TestAnalyzeResults(string testFolderPath)
+        {
+            List<DataAnalyzer> testDataAnalyzers = new List<DataAnalyzer>();
+            foreach (DataAnalyzer dataAnalyzer in DataAnalyzers.Values)
+            {
+                DataAnalyzer testDataAnalyzer = dataAnalyzer.AnalyzeGPUTest();
+                testDataAnalyzers.Add(testDataAnalyzer);
+                testDataAnalyzer.SaveDataToFile(testFolderPath);
+            }
+            CompareTestResults(DataAnalyzers.Values.ToList(), testDataAnalyzers);
+        }
+
+        static public void CompareTestResults(List<DataAnalyzer> dataAnalyzers, List<DataAnalyzer> testDataAnalyzers)
+        {
+            float[] totalNumOfPreditions = new float[dataAnalyzers[0].NumOfDataColumns];
+            float[] totalSum = new float[dataAnalyzers[0].NumOfDataColumns];
+            float[] totalTestSum = new float[dataAnalyzers[0].NumOfDataColumns];
+
+            for (int i = 0; i < dataAnalyzers.Count; i++)
+            {
+                DataAnalyzer dataAnalyzer = dataAnalyzers[i];
+                DataAnalyzer testDataAnalyzer = testDataAnalyzers[i];
+                float[] numOfPreditions = new float[dataAnalyzer.NumOfDataColumns];
+                float[] sum = new float[dataAnalyzer.NumOfDataColumns];
+                float[] testSum = new float[dataAnalyzer.NumOfDataColumns];
+                foreach (ulong combination in dataAnalyzer.Keys)
+                {
+                    for (int j = 0; j < dataAnalyzer.NumOfDataColumns; j++)
+                    {
+                        if (dataAnalyzer[combination][j] >= SimSettings.EffectivePredictionResult)
+                        {
+                            sum[j] += dataAnalyzer[combination][j];
+                            testSum[j] += testDataAnalyzer[combination][j];
+                            numOfPreditions[j]++;
+                        }
+                    }
+                }
+
+                for (int j = 0; j < dataAnalyzer.NumOfDataColumns; j++)
+                {
+                    totalNumOfPreditions[j] += numOfPreditions[j];
+                    totalSum[j] += sum[j];
+                    totalTestSum[j] += testSum[j];
+
+                    if (numOfPreditions[j] > 0)
+                    {
+                        Console.WriteLine("Prediction {0}, predicted average {1}, tested average {2}, num of predictions {3}",
+                            DSSettings.AnalyzeItems[j].ToString(), sum[j] / numOfPreditions[j], testSum[j] / numOfPreditions[j], numOfPreditions[j]);
+                    }
+                }
+            }
+
+            Console.WriteLine("Total results:");
+            float finalNumOfPreditions = 0.0F;
+            float finalSum = 0.0F;
+            float finalTestSum = 0.0F;
+
+            for (int j = 0; j < dataAnalyzers[0].NumOfDataColumns; j++)
+            {
+                finalNumOfPreditions += totalNumOfPreditions[j];
+                finalSum += totalSum[j];
+                finalTestSum += totalTestSum[j];
+                if (totalNumOfPreditions[j] > 0)
+                {
+                    Console.WriteLine("Prediction {0}, predicted average {1}, tested average {2}, num of predictions {3}",
+                        DSSettings.AnalyzeItems[j].ToString(), totalSum[j] / totalNumOfPreditions[j], totalTestSum[j] / totalNumOfPreditions[j], totalNumOfPreditions[j]);
+                }
+            }
+
+            Console.WriteLine("Final accuracy: predicted average {0}, tested average {1}, num of predictions {2}",
+                finalSum / finalNumOfPreditions, finalTestSum / finalNumOfPreditions, finalNumOfPreditions);
         }
 
         #endregion
 
         #region Private Methods
 
-        private void RunSimulationCycle(int dataSetRow, List<AnalyzerRecord> analyzerRecords)
+        private void CompareTestResults(DataAnalyzer dataAnalyzer, DataAnalyzer testDataAnalyzer)
         {
-            List<double> todayData = DataSet.GetDayData(dataSetRow);
-
-            List<AnalyzerRecord> relevantAnalyzerRecords = GetRelevantPredictions(dataSetRow, analyzerRecords);
-            
-            if (dataSetRow == 0)
+            float predictionLimit = 0.85F;
+            float[] numOfPreditions = new float[dataAnalyzer.NumOfDataColumns];
+            float[] sum = new float[dataAnalyzer.NumOfDataColumns];
+            float[] testSum = new float[dataAnalyzer.NumOfDataColumns];
+            foreach (ulong combination in dataAnalyzer.Keys)
             {
-                if (Investment != null && (Investment.InvestedDay - Investment.AnalyzerRecord.PredictedChange.Range) < 0)
+                for (int i = 0; i < dataAnalyzer.NumOfDataColumns; i++)
                 {
-                    AccountBallance += Investment.Ammount * todayData[(int)DataSet.DataColumns.Close];
-                    Investment = null;
-                    Console.WriteLine("Money: {0}", AccountBallance);
-                }
-            }
-
-
-            bool onlyCloseOperations = false;
-
-            if (Investment != null)
-            {
-                double change = (Investment.Price - todayData[(int)DataSet.DataColumns.Open]) / Investment.Price;
-                if (Investment.InvestedDay - Investment.AnalyzerRecord.PredictedChange.Range == dataSetRow
-                    || change > (BuyActionPenalty * BuyActionPenalty) && Investment.Ammount > 0
-                    || change < (SellActionPenalty * SellActionPenalty) && Investment.Ammount < 0)
-                {
-                    if (Investment.AnalyzerRecord.PredictedChange.DataItem == DataItem.CloseOpenDif || Investment.AnalyzerRecord.PredictedChange.DataItem == DataItem.NegativeCloseOpenDif)
+                    if (dataAnalyzer[combination][i] >= predictionLimit)
                     {
-                        AccountBallance += Investment.Ammount * todayData[(int)DataSet.DataColumns.Close];
-                        Console.WriteLine("Money: {0}", AccountBallance);
-                        onlyCloseOperations = true;
-                        Investment = null;
-                    }
-                    else
-                    {
-                        AccountBallance += Investment.Ammount * todayData[(int)DataSet.DataColumns.Open];
-                        Console.WriteLine("Money: {0}", AccountBallance);
-                        Investment = null;
+                        sum[i] += dataAnalyzer[combination][i];
+                        testSum[i] += testDataAnalyzer[combination][i];
+                        numOfPreditions[i]++;
                     }
                 }
-                else
-                {
-                    return;
-                }
             }
 
-            if (relevantAnalyzerRecords.Count == 0)
+            for (int i = 0; i < dataAnalyzer.NumOfDataColumns; i++)
             {
-                return;
-            }
-
-            AnalyzerRecord analyzerRecord = relevantAnalyzerRecords.OrderByDescending(x => x.PredictionCorrectness).FirstOrDefault();
-
-            if (dataSetRow == 0)
-            {
-
-                if (analyzerRecord.PredictedChange.Range > 1 && analyzerRecord.PredictedChange.DataItem != DataItem.CloseOpenDif && analyzerRecord.PredictedChange.DataItem != DataItem.NegativeCloseOpenDif)
+                if (numOfPreditions[i] > 0)
                 {
-                    return;
+                    Console.WriteLine("Prediction {0}, predicted average {1}, tested average {2}, num of predictions {3}",
+                        DSSettings.AnalyzeItems[i].ToString(), sum[i] / numOfPreditions[i], testSum[i] / numOfPreditions[i], numOfPreditions[i]);
                 }
-            }
-
-            if (analyzerRecord == null)
-            {
-                return;
-            }
-
-            if (analyzerRecord.PredictedChange.DataItem == DataItem.CloseOpenDif && !onlyCloseOperations)
-            {
-                int numOfShares = (int)(AccountBallance / (todayData[(int)DataSet.DataColumns.Open] * BuyActionPenalty));
-                if (analyzerRecord.PredictedChange.Range == 1)
-                {
-                    Investment = new Investment() { Ammount = numOfShares, AnalyzerRecord = analyzerRecord, InvestedDay = dataSetRow, Price = todayData[(int)DataSet.DataColumns.Open] };
-                    AccountBallance -= (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Open] * BuyActionPenalty));
-                }
-                else
-                {
-                    AccountBallance -= (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Open] * BuyActionPenalty));
-                    AccountBallance += (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Close] * SellActionPenalty));
-                    Console.WriteLine("Money: {0}", AccountBallance);
-                }
-            }
-            else if (analyzerRecord.PredictedChange.DataItem == DataItem.OpenPrevCloseDif)
-            {
-                int numOfShares = (int)(AccountBallance / (todayData[(int)DataSet.DataColumns.Close] * BuyActionPenalty));
-                Investment = new Investment() { Ammount = numOfShares, AnalyzerRecord = analyzerRecord, InvestedDay = dataSetRow, Price = todayData[(int)DataSet.DataColumns.Close] };
-                AccountBallance -= (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Close] * BuyActionPenalty));
-            }
-            else if (analyzerRecord.PredictedChange.DataItem == DataItem.NegativeCloseOpenDif && !onlyCloseOperations)
-            {
-                int numOfShares = -(int)(AccountBallance / (todayData[(int)DataSet.DataColumns.Open] * SellActionPenalty));
-                if (analyzerRecord.PredictedChange.Range == 1)
-                {
-                    Investment = new Investment() { Ammount = numOfShares, AnalyzerRecord = analyzerRecord, InvestedDay = dataSetRow, Price = todayData[(int)DataSet.DataColumns.Open] };
-                    AccountBallance -= (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Open] * BuyActionPenalty));
-                }
-                else
-                {
-                    AccountBallance -= (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Open] * BuyActionPenalty));
-                    AccountBallance += (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Close] * SellActionPenalty));
-                    Console.WriteLine("Money: {0}", AccountBallance);
-                }
-            }
-            else if (analyzerRecord.PredictedChange.DataItem == DataItem.NegativeOpenPrevCloseDif)
-            {
-                int numOfShares = -(int)(AccountBallance / (todayData[(int)DataSet.DataColumns.Close] * SellActionPenalty));
-                Investment = new Investment() { Ammount = numOfShares, AnalyzerRecord = analyzerRecord, InvestedDay = dataSetRow, Price = todayData[(int)DataSet.DataColumns.Close] };
-                AccountBallance -= (int)(numOfShares * (todayData[(int)DataSet.DataColumns.Close] * SellActionPenalty));
             }
         }
 
-        private List<AnalyzerRecord> GetRelevantPredictions(int dataSetRow, List<AnalyzerRecord> analyzerRecords)
+
+        private void RunSimulationCycle(int day)
         {
-            List<AnalyzerRecord> fitAnalyzerRecords = new List<AnalyzerRecord>();
-            foreach (AnalyzerRecord analyzerRecord in analyzerRecords)
+            Log.AddMessage("{0}:", m_SimulationDate.ToShortDateString());
+            List<PredictionRecord> relevantAnalyzerRecords = GetRelevantPredictions(day);
+            DailyAnalyzes dailyAnalyzes = GetPredictionsConclusions(day);
+           // Log.AddMessage(GetAnalyzeConclussionsReport(dailyAnalyzes));
+            dailyAnalyzes.RemoveBadAnalyzes();
+
+            UpdateInvestments(dailyAnalyzes, day);
+
+            ReleaseInvestments(day);
+
+            CreateNewInvestments(dailyAnalyzes, day);
+        }
+
+        private void UpdateInvestments(DailyAnalyzes dailyAnalyzes, int dataSetRow)
+        {
+            foreach (Investment investment in Investments)
+            {
+                investment.UpdateInvestment(dailyAnalyzes, dataSetRow);
+            }
+        }
+
+        private void ReleaseInvestments(int day)
+        {
+            List<Investment> investmentsToRelease = Investments.Where(x => x.IsEndOfInvestment).ToList();
+            foreach (Investment investment in investmentsToRelease)
+            {
+                ReleaseInvestment(day, investment);
+            }
+        }
+
+        private void ReleaseInvestment(int day, Investment investment)
+        {
+            AccountBallance = investment.UpdateAccountOnRelease(day, AccountBallance);
+            if (AccountBallance > m_MaxAccountBalance)
+            {
+                m_MaxAccountBalance = AccountBallance;
+            }
+            else if (AccountBallance < m_MinAccountBalance)
+            {
+                m_MinAccountBalance = AccountBallance;
+            }
+
+            if (investment.GetProfit(day) < -100)
+            {
+
+            }
+            TotalProfit += investment.GetProfit(day);
+            Log.AddMessage("Release investment of {0} with prediction {1}:", investment.DataSet.DataSetName, investment.PredictedChange.ToString());
+            Log.AddMessage("AccountBalance {0}, release profit {1}, total profit {2}", AccountBallance, investment.GetProfit(day), TotalProfit);
+            Investments.Remove(investment);
+        }
+
+        private void AddInvestment(int day, Analyze analyze)
+        {
+            if (Investments.Where(x => x.DataSet.Equals(analyze.DataSet)).Count() > 0)
+            {
+                return;
+            }
+
+            if (analyze.NumOfPredictions < 100)
+            {
+                return;
+            }
+
+            if (analyze.PredictedChange.Range > day)
+            {
+                return;
+            }
+            Investment investment = new Investment(analyze, day, AccountBallance);
+            AccountBallance = investment.UpdateAccountOnInvestment(day, AccountBallance);
+            if (AccountBallance > m_MaxAccountBalance)
+            {
+                m_MaxAccountBalance = AccountBallance;
+            }
+            else if (AccountBallance < m_MinAccountBalance)
+            {
+                m_MinAccountBalance = AccountBallance;
+            }
+            Log.AddMessage("New investment of {0} with prediction {1}, num of investments {2}:", investment.DataSet.DataSetName, investment.PredictedChange.ToString(), Investments.Count + 1);
+            Log.AddMessage("Account balance {0}, bought {1} shares, price {2}", AccountBallance, investment.Ammount, investment.InvestedPrice);
+            Investments.Add(investment);
+        }
+
+        private void CreateNewInvestments(DailyAnalyzes dailyAnalyzes, int day)
+        {
+            if (day == 0)
+            {
+                return;
+            }
+
+            foreach (DataSetAnalyzes dataSetAnalyze in dailyAnalyzes.Values)
+            {
+                foreach (Analyze analyze in dataSetAnalyze.Values.OrderByDescending(x => x.AverageCorrectness))
+                {
+                    AddInvestment(day, analyze);
+                }
+            }
+        }
+
+        private DailyAnalyzes GetPredictionsConclusions(int dataSetRow)
+        {
+            DailyAnalyzes conclusions = new DailyAnalyzes();
+            List<PredictionRecord> relevantPredictions = GetRelevantPredictions(dataSetRow);
+
+            foreach (PredictionRecord record in relevantPredictions)
+            {
+                conclusions.Add(record.DataSet, record.PredictedChange, record);
+            }
+
+            return conclusions;
+        }
+
+        private string GetAnalyzeConclussionsReport(DailyAnalyzes analyzeConclussions)
+        {
+            string report = string.Empty;
+            foreach (DataSet dataset in analyzeConclussions.Keys)
+            {
+                report += string.Format("{0} predictions analyze:" + Environment.NewLine, dataset.DataSetName);
+                foreach (CombinationItem predictedChange in analyzeConclussions[dataset].Keys)
+                {
+                    Analyze conclusion = analyzeConclussions[dataset][predictedChange];
+                    report += string.Format("Change of {0}, range {1}, {2} of predictions, accuracy {3}",
+                        conclusion.PredictedChange.DataItem, conclusion.PredictedChange.Range, conclusion.NumOfPredictions, conclusion.AverageCorrectness);
+
+                    report += Environment.NewLine;
+                }
+            }
+
+            return report;
+        }
+
+        private List<PredictionRecord> GetRelevantPredictions(int dataSetRow)
+        {
+            List<PredictionRecord> fitAnalyzerRecords = new List<PredictionRecord>();
+            foreach (PredictionRecord analyzerRecord in m_AnalyzerRecords)
             {
                 if (IsAnalyzeFits(dataSetRow, analyzerRecord))
                 {
                     fitAnalyzerRecords.Add(analyzerRecord);
                 }
             }
+            //for (int i = 0; i < 10 && i < fitAnalyzerRecords.Count; i++)
+            //{
+            //    //Log.AddMessage("Share {0} should change {1} with probability of {2}", fitAnalyzerRecords[i].DataSetName, fitAnalyzerRecords[i].PredictedChange, fitAnalyzerRecords[i].PredictionCorrectness);
+            //}
 
             return fitAnalyzerRecords;
         }
 
-        private bool IsAnalyzeFits(int dataSetRow, AnalyzerRecord analyzerRecord)
+        private bool IsAnalyzeFits(int dataSetRow, PredictionRecord analyzerRecord)
         {
             foreach (CombinationItem combinationItem in analyzerRecord.Combination)
             {
-                if (!DataAnalyzer.IsContainsPrediction(combinationItem, dataSetRow, -DataAnalyzer.PredictionErrorRange, DataAnalyzer.PredictionErrorRange))
+                if (!DataAnalyzers[analyzerRecord.DataSet.DataSetName].IsContainsPrediction(combinationItem, dataSetRow, -DSSettings.PredictionErrorRange, DSSettings.PredictionErrorRange))
                 {
                     return false;
                 }
@@ -210,38 +352,7 @@ namespace StocksSimulation
             return true;
         }
 
-        private void GetPredictionType(out bool positiveChange, out PredictionsDataSet.DataColumns predictionColumn, AnalyzesDataSet.AnalyzeCombination combinationItem)
-        {
-            positiveChange = true;
-            predictionColumn = PredictionsDataSet.DataColumns.OpenChange;
-            switch (combinationItem)
-            {
-                case AnalyzesDataSet.AnalyzeCombination.OpenChange: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.OpenChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.HighChange: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.HighChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.LowChange: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.LowChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.CloseChange: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.CloseChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.VolumeChange: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.VolumeChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.HighLowDif: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.HighLowDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.HighOpenDif: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.HighOpenDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.LowOpenDif: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.LowOpenDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.CloseOpenDif: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.CloseOpenDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.HighPrevCloseDif: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.HighPrevCloseDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.LowPrevCloseDif: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.LowPrevCloseDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.OpenPrevCloseDif: { positiveChange = true; predictionColumn = PredictionsDataSet.DataColumns.OpenPrevCloseDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeOpenChange: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.OpenChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeHighChange: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.HighChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeLowChange: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.LowChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeCloseChange: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.CloseChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeVolumeChange: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.VolumeChange; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeHighLowDif: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.HighLowDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeHighOpenDif: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.HighOpenDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeLowOpenDif: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.LowOpenDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeCloseOpenDif: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.CloseOpenDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeHighPrevCloseDif: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.HighPrevCloseDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeLowPrevCloseDif: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.LowPrevCloseDif; } break;
-                case AnalyzesDataSet.AnalyzeCombination.NegativeOpenPrevCloseDif: { positiveChange = false; predictionColumn = PredictionsDataSet.DataColumns.OpenPrevCloseDif; } break;
-            }
-        }
+
 
         #endregion
     }

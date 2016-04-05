@@ -50,9 +50,9 @@ namespace StocksData
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.SetCursorPosition(0, Console.CursorTop - 1);
                 Console.WriteLine("Current Request: {0}", datasetCode.Replace('/', '-') + ".csv");
-                Console.WriteLine("Completed {0}%", (((double)datasetNumber) / (double)datasetsCodes.Count * 100.0).ToString("0.00"));
+                Console.WriteLine("Completed {0}%", (((float)datasetNumber) / (float)datasetsCodes.Count * 100.0).ToString("0.00"));
 
-                using (StreamWriter writer = new StreamWriter(path + Constants.DataSetsDir + datasetCode.Replace('/', '-') + ".csv"))
+                using (StreamWriter writer = new StreamWriter(path + DSSettings.DataSetsDir + datasetCode.Replace('/', '-') + ".csv"))
                 {
                     writer.Write(connection.Request(downloadRequest));
                 }

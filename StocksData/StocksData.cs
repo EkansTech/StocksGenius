@@ -1,4 +1,4 @@
-﻿using System;
+﻿  using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -27,8 +27,6 @@ namespace StocksData
             set { m_StocksDataPath = value; }
         }
 
-
-
         #endregion
 
         #region Constructor
@@ -36,76 +34,59 @@ namespace StocksData
         public StocksData(string path)
         {
             m_StocksDataPath = path;
-            m_DataSetPaths = Directory.GetFiles(m_StocksDataPath + Constants.DataSetsDir).ToList();
+            m_DataSetPaths = Directory.GetFiles(m_StocksDataPath + DSSettings.DataSetsDir).ToList();
         }
 
         #endregion
 
         #region Interface
 
-        public void BuildDataSetChanges()
+        public void BuildiForexAnalyzer()
         {
             int datasetNumber = 0;
+            string iForexAnalyzerFolder = "\\iForexAnalyzer\\";
+            string iForexStocksListFile = "iForexStocks.txt";
 
-            Console.WriteLine("Building Changes Data Set");
-
-            foreach (string dataSetPath in m_DataSetPaths)
+            Dictionary<string /*stock name*/, string /*stock dataset file*/> iForexFiles = LoadStocksListFile(StockDataPath + iForexStocksListFile);
+            float loadTime = 0;
+            float gpuTime = 0;
+            foreach (string stockName in iForexFiles.Keys)
             {
-                if (datasetNumber > 0)
-                {
-                    Console.SetCursorPosition(0, Console.CursorTop - 2);
-                }
+                string dataSetsPath = StockDataPath + DSSettings.DataSetsDir + iForexFiles[stockName];
+                //if (datasetNumber > 0)
+                //{
+                //    Console.SetCursorPosition(0, Console.CursorTop - 2);
+                //}
 
                 datasetNumber++;
 
-                Console.Write(new string(' ', Console.WindowWidth));
-                Console.SetCursorPosition(0, Console.CursorTop - 1);
-                Console.WriteLine("Current Data Set: {0}", Path.GetFileName(dataSetPath));
-                Console.WriteLine("Completed {0}%", (((double)datasetNumber) / (double)m_DataSetPaths.Count* 100.0).ToString("0.00"));
+                //Console.Write(new string(' ', Console.WindowWidth));
+                //Console.SetCursorPosition(0, Console.CursorTop - 1);
+                Console.WriteLine("Current Stock: {0}", stockName);
+                Console.WriteLine("Completed {0}%", (((float)datasetNumber) / (float)iForexFiles.Count * 100.0).ToString("0.00"));
 
-
-                DataSet dataSet = new DataSet(dataSetPath);
-                ChangesDataSet dataSetChange = new ChangesDataSet(dataSet);
-                dataSetChange.SaveDataToFile(StockDataPath + Constants.ChangeDataSetsDir);
-            }
-        }
-
-        public void BuildDataSetPredictions()
-        {
-            int datasetNumber = 0;
-
-            Console.WriteLine("DataSet Analyzer");
-            double loadTime = 0;
-            foreach (string dataSetPath in m_DataSetPaths.Where(x => Path.GetFileName(x).StartsWith("WIKI-AA.csv")))
-            {
-                if (datasetNumber > 0)
-                {
-                    Console.SetCursorPosition(0, Console.CursorTop - 2);
-                }
-
-                datasetNumber++;
-
-                Console.Write(new string(' ', Console.WindowWidth));
-                Console.SetCursorPosition(0, Console.CursorTop - 1);
-                Console.WriteLine("Current Data Set: {0}", Path.GetFileName(dataSetPath));
-                Console.WriteLine("Completed {0}%", (((double)datasetNumber) / (double)m_DataSetPaths.Count * 100.0).ToString("0.00"));
-
-
-                DataSet dataSet = new DataSet(dataSetPath);
+                
+                DataSet dataSet = new DataSet(dataSetsPath, TestDataAction.RemoveTestData);
                 DateTime timePoint = DateTime.Now;
-                DataAnalyzer dataAnalyzer = new DataAnalyzer(dataSet, true);
-                loadTime += (DateTime.Now - timePoint).TotalMilliseconds;
-                dataAnalyzer.SaveDataToFile(StockDataPath + DataAnalyzer.AnalyzerDataSetsDir);
+                DataAnalyzer dataAnalyzer = new DataAnalyzer(dataSet, StockDataPath + iForexAnalyzerFolder,true);
+                loadTime += (float)(DateTime.Now - timePoint).TotalMilliseconds;
+                gpuTime += dataAnalyzer.GPULoadTime;
+                dataAnalyzer.SaveDataToFile(StockDataPath + iForexAnalyzerFolder);
             }
 
-            Console.WriteLine(string.Format("Analyzer time = {0}", loadTime));
+            Console.WriteLine(string.Format("Analyzer time = {0}, GPU total time - {1}", loadTime / 1000, gpuTime / 1000));
             Console.WriteLine();
             Console.ReadKey();
 
             return;
+        }
 
-            Console.WriteLine("Building Predictions Data Set");
-            loadTime = 0;
+        public void BuildDataAnalyzers()
+        {
+            int datasetNumber = 0;
+
+            Console.WriteLine("DataSet Analyzer");
+            float loadTime = 0;
             foreach (string dataSetPath in m_DataSetPaths.Where(x => Path.GetFileName(x).StartsWith("WIKI-AA.csv")))
             {
                 if (datasetNumber > 0)
@@ -118,54 +99,41 @@ namespace StocksData
                 Console.Write(new string(' ', Console.WindowWidth));
                 Console.SetCursorPosition(0, Console.CursorTop - 1);
                 Console.WriteLine("Current Data Set: {0}", Path.GetFileName(dataSetPath));
-                Console.WriteLine("Completed {0}%", (((double)datasetNumber) / (double)m_DataSetPaths.Count * 100.0).ToString("0.00"));
+                Console.WriteLine("Completed {0}%", (((float)datasetNumber) / (float)m_DataSetPaths.Count * 100.0).ToString("0.00"));
 
 
                 DataSet dataSet = new DataSet(dataSetPath);
-                ChangesDataSet changesDataSet = new ChangesDataSet(dataSet, false);
-                changesDataSet.SaveDataToFile(StockDataPath + Constants.ChangeDataSetsDir);
-                PredictionsDataSet predictionsDataSet = new PredictionsDataSet(changesDataSet, true);
-                predictionsDataSet.SaveDataToFile(StockDataPath + Constants.PredictionsDataSetsDir);
-
                 DateTime timePoint = DateTime.Now;
-                AnalyzesDataSet analyzesDataSet = new AnalyzesDataSet(changesDataSet, predictionsDataSet, false);
-                loadTime += (DateTime.Now - timePoint).TotalMilliseconds;
-                analyzesDataSet.SaveDataToFile(StockDataPath + Constants.AnalyzesDataSetsDir);
+                DataAnalyzer dataAnalyzer = new DataAnalyzer(dataSet, StockDataPath + DSSettings.AnalyzerDataSetsDir, true);
+                loadTime += (float)(DateTime.Now - timePoint).TotalMilliseconds;
+                dataAnalyzer.SaveDataToFile(StockDataPath + DSSettings.AnalyzerDataSetsDir);
             }
 
-            Console.WriteLine(string.Format("GPU analyze time = {0}", loadTime));
+            Console.WriteLine(string.Format("Analyzer time = {0}", loadTime));
             Console.WriteLine();
-            Console.WriteLine();
+            //Console.ReadKey();
 
-            datasetNumber = 0;
-            foreach (string dataSetPath in m_DataSetPaths.Where(x => Path.GetFileName(x).StartsWith("WIKI-AA")))
-            {
-                if (datasetNumber > 0)
-                {
-                    Console.SetCursorPosition(0, Console.CursorTop - 2);
-                }
-
-                datasetNumber++;
-
-                Console.Write(new string(' ', Console.WindowWidth));
-                Console.SetCursorPosition(0, Console.CursorTop - 1);
-                Console.WriteLine("Current Data Set: {0}", Path.GetFileName(dataSetPath));
-                Console.WriteLine("Completed {0}%", (((double)datasetNumber) / (double)m_DataSetPaths.Count * 100.0).ToString("0.00"));
-
-
-                DataSet dataSet = new DataSet(dataSetPath);
-                ChangesDataSet changesDataSet = new ChangesDataSet(dataSet, false);
-                changesDataSet.SaveDataToFile(StockDataPath + Constants.ChangeDataSetsDir);
-                PredictionsDataSet predictionsDataSet = new PredictionsDataSet(changesDataSet, true);
-
-                DateTime timePoint = DateTime.Now;
-                AnalyzesDataSet analyzesDataSet = new AnalyzesDataSet(changesDataSet, predictionsDataSet, false);
-                loadTime += (DateTime.Now - timePoint).TotalMilliseconds;
-                analyzesDataSet.SaveDataToFile(StockDataPath + Constants.AnalyzesDataSetsDir);
-            }
-
-            Console.WriteLine(string.Format("CPU analyze time = {0}", loadTime));
+            return;
         }
+
+        public static Dictionary<string, string> LoadStocksListFile(string filePath)
+        {
+            Dictionary<string, string> stocksList = new Dictionary<string, string>();
+            using (StreamReader reader = new StreamReader(filePath))
+            {
+                while (!reader.EndOfStream)
+                {
+                    string line = reader.ReadLine();
+                    stocksList.Add(line.Split(':')[0].Trim(), line.Split(':')[1].Trim());
+                }
+            }
+
+            return stocksList;
+        }
+
+        #endregion
+
+        #region Private Methods
 
         #endregion
     }

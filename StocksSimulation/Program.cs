@@ -13,35 +13,23 @@ namespace StocksSimulation
         static void Main(string[] args)
         {
             string stocksDataPath = "C:\\Ekans\\Stocks\\Quandl\\";
-            List<string> dataSetPaths = Directory.GetFiles(stocksDataPath + StocksData.Constants.DataSetsDir).ToList();
-            List<string> dataAnalyzerPaths = Directory.GetFiles(stocksDataPath + DataAnalyzer.AnalyzerDataSetsDir).ToList();
+            string iForexStocksListFile = "iForexStocks.txt";
+            string iForexAnalyzerFolder = "\\iForexAnalyzer\\";
+            string iForexTestAnalyzerFolder = "\\iForexTestAnalyzer\\";
 
-            foreach (string dataSetPath in dataSetPaths.Where(x => Path.GetFileName(x).StartsWith("WIKI-AA.csv")))
-            {
-                string analyzeDataSetPath = dataAnalyzerPaths.First(x => Path.GetFileName(x).StartsWith(Path.GetFileNameWithoutExtension(dataSetPath)));
-                DataSet dataSet = new DataSet(dataSetPath);
-                DataAnalyzer dataAnalyzer = new DataAnalyzer(analyzeDataSetPath, dataSet);
+            Dictionary<string /*stock name*/, string /*stock dataset file*/> iForexFiles = StocksData.StocksData.LoadStocksListFile(stocksDataPath + iForexStocksListFile);
 
-                AnalyzerSimulator simulation = new AnalyzerSimulator(dataSet, dataAnalyzer);
-                simulation.Simulate();
-            }
+            AnalyzerSimulator analyzerSimulator = new AnalyzerSimulator(iForexFiles.Values.ToList(), stocksDataPath + DSSettings.DataSetsDir, stocksDataPath + iForexAnalyzerFolder);
+            //analyzerSimulator.TestAnalyzeResults(stocksDataPath + iForexTestAnalyzerFolder);
+            analyzerSimulator.Simulate();
+
+            //Console.Write(Log.ToString());
+            Log.SaveLogToFile(@"C:\Ekans\Stocks\Quandl\AnalyzeSimulator.log");
+
             Console.ReadKey();
 
             return;
 
-            //List<string> analyzeDataSetPaths = Directory.GetFiles(stocksDataPath + StocksData.Constants.AnalyzesDataSetsDir).ToList();
-
-            //foreach (string dataSetPath in dataSetPaths.Where(x => Path.GetFileName(x).StartsWith("WIKI-AA.csv")))
-            //{
-            //    string analyzeDataSetPath = analyzeDataSetPaths.First(x => Path.GetFileName(x).StartsWith(Path.GetFileNameWithoutExtension(dataSetPath)));
-            //    DataSet dataSet = new DataSet(dataSetPath);
-            //    AnalyzesDataSet analyzeDataSet = new AnalyzesDataSet(analyzeDataSetPath);
-
-            //    StocksSimulation simulation = new StocksSimulation(dataSet, analyzeDataSet);
-            //    simulation.Simulate();
-            //}
-
-            Console.ReadKey();
         }
     }
 }

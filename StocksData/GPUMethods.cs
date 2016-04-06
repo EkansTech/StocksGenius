@@ -98,7 +98,7 @@ namespace StocksData
             m_AnalyzeResultsDM = null;
         }
 
-        public float[] AnalyzeCombinations(byte[] combinations, byte combinationSize, int combinationsNum, int minimumPredictionsForAnalyze)
+        public float[] AnalyzeCombinations(byte[] combinations, byte combinationSize, int combinationsNum, int minimumPredictionsForAnalyze, float minimumRelevantAnalyzeResult)
         {
             using (var dCombinations = GPUWorker.Malloc(combinations))
             {
@@ -110,7 +110,7 @@ namespace StocksData
                 var grid = new dim3(gridX);
                 var lp = new LaunchParam(grid, block);
                 GPULaunch(AnalyzeCombinations, lp, dCombinations.Ptr, combinationSize, m_AnalyzeResultsDM.Ptr, m_PredictedChangesDM.Ptr,
-                    m_ActualChangesDM.Ptr, m_AnalyzesRangesDM.Ptr, combinationsNum, minimumPredictionsForAnalyze);
+                    m_ActualChangesDM.Ptr, m_AnalyzesRangesDM.Ptr, combinationsNum, minimumPredictionsForAnalyze, minimumRelevantAnalyzeResult);
                 return m_AnalyzeResultsDM.Gather();
             }
         }
@@ -180,7 +180,7 @@ namespace StocksData
 
         [Kernel]
         public void AnalyzeCombinations(deviceptr<byte> combinationItems, byte combinationSize, deviceptr<float> analyzeResults, deviceptr<byte> predictedChanges,
-            deviceptr<byte> actualChanges, deviceptr<byte> analyzeRanges, int combinationsNum, int minimumPredictionsForAnalyze)
+            deviceptr<byte> actualChanges, deviceptr<byte> analyzeRanges, int combinationsNum, int minimumPredictionsForAnalyze, float minimumRelevantAnalyzeResult)
         {
             var combinationNum = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -212,7 +212,9 @@ namespace StocksData
 
                 for (byte analyzeNum = 0; analyzeNum < m_AnalyzesNum; analyzeNum++)
                 {
-                    float analyzeResult = (predictedChangesSum > minimumPredictionsForAnalyze) ? (float)threadActualPredictedChangeSum[analyzeNum] / (float)predictedChangesSum : 0.0F;
+                    bool isRelevant = (predictedChangesSum > minimumPredictionsForAnalyze)
+                        && (float)threadActualPredictedChangeSum[analyzeNum] / minimumPredictionsForAnalyze >= minimumRelevantAnalyzeResult;
+                    float analyzeResult = isRelevant ? (float)threadActualPredictedChangeSum[analyzeNum] / (float)predictedChangesSum : 0.0F;
                     analyzeResults[combinationNum * m_AnalyzesNum + analyzeNum] = analyzeResult;
                 }
             }

@@ -44,13 +44,13 @@ namespace StocksData
             new CombinationItem(9, DataItem.NegativeOpenChange),
         };
 
-        public const int AnalyzeMaxCombinationSize = 6;
+        public const int AnalyzeMaxCombinationSize = 9;
 
         public const string AnalyzerDataSetSuffix = "-Analyzer";
 
         public const string AnalyzerDataSetsDir = "\\Analyzer\\";
 
-        public const float MinimumRelevantAnalyzeResult = 0.7F;
+        public const float MinimumRelevantAnalyzeResult = 0.85F;
 
         public static readonly int GPUCycleSize = 1024 * 1024;// * AnalyzeItems.Count;
 

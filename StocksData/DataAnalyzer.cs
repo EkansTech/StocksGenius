@@ -19,7 +19,7 @@ namespace StocksData
         private int m_GPUCyclesPerSize = 0;
         private Dictionary<byte, List<ulong>> m_GPUBadCombinations = null;
         private List<ulong> m_GPUSizeBadCombinations = null;
-        private int m_GPUCurrentBadCombinationSize = 1;
+        private ulong m_GPUNumOfBadCombinations = 0;
         private List<int> m_GPUCurrentBadCombination;
 
         private GPUAnalyzer m_GPUAnalyzer = null;
@@ -92,7 +92,7 @@ namespace StocksData
             if (File.Exists(filePath))
             {
                 LoadFromFile(filePath);
-                m_LastAnalyzedSize = (byte)CombinationItem.ULongToCombinationItems(this.Last().Key).Count;
+                m_LastAnalyzedSize = (Count > 0) ? (byte)CombinationItem.ULongToCombinationItems(this.Last().Key).Count : (byte)1;
             }
 
             LoadFromDataSet(useGPU);
@@ -405,6 +405,7 @@ namespace StocksData
                 int numOfCombinationsPerSize = DSSettings.GPUCycleSize * m_GPUCyclesPerSize + m_GPUCombinationNum;
                 RunGpuAnalyzerCycle(combinationSize);
                 Console.WriteLine("Number of combinations for size {0} is {1}", combinationSize, numOfCombinationsPerSize);
+                Console.WriteLine("Number of bad combinations is {0}", m_GPUNumOfBadCombinations);
 
                 m_GPUBadCombinations.Add(combinationSize, m_GPUSizeBadCombinations);
             }
@@ -519,7 +520,8 @@ namespace StocksData
         {
             m_GPUCyclesPerSize++;
             DateTime timePoint = DateTime.Now;
-            float[] analyzeResultsArray = m_GPUAnalyzer.AnalyzeCombinations(m_GPUCombinationsItems, combinationSize, m_GPUCombinationNum, MinimumPredictionsForAnalyze);
+            float[] analyzeResultsArray = m_GPUAnalyzer.AnalyzeCombinations(m_GPUCombinationsItems, 
+                combinationSize, m_GPUCombinationNum, MinimumPredictionsForAnalyze, DSSettings.MinimumRelevantAnalyzeResult);
             GPULoadTime += (float)(DateTime.Now - timePoint).TotalMilliseconds;
             Console.WriteLine("{0} seconds for {1} combinations", (DateTime.Now - timePoint).TotalMilliseconds / 1000, m_GPUCombinationNum);
 
@@ -546,6 +548,7 @@ namespace StocksData
                 if (badCombination)
                 {
                     m_GPUSizeBadCombinations.Add(m_GPUCombinations[combinationNum]);
+                    m_GPUNumOfBadCombinations++;
                 }
             }
             

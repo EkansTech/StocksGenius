@@ -131,7 +131,7 @@ namespace StocksSimulation
             BuySell releaseAction = (InvestmentType == BuySell.Buy) ? BuySell.Sell : BuySell.Buy;
             float releaseMoney = GetInvestmentMoney(Ammount, DataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
             float profitRatio = (InvestmentType == BuySell.Buy) ? (GetReleasePrice(day) - InvestedMoney) / InvestedMoney : (InvestedMoney - GetReleasePrice(day)) / InvestedMoney;
-            if (profitRatio > SimSettings.MinProfitRatio)
+            if (profitRatio > AnalyzerSimulator.MinProfitRatio || profitRatio < AnalyzerSimulator.MaxLooseRatio)
             {
                 return true;
             }

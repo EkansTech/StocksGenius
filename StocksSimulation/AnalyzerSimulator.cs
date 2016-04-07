@@ -11,7 +11,7 @@ namespace StocksSimulation
     {
         #region Members
 
-        List<PredictionRecord> m_AnalyzerRecords = new List<PredictionRecord>();
+        List<PredictionRecord> m_PredictionRecords = new List<PredictionRecord>();
 
         private DateTime m_SimulationDate;
 
@@ -24,7 +24,7 @@ namespace StocksSimulation
         #region Properties
 
         public Dictionary<string, DataSet> DataSets { get; set; }
-        public Dictionary<string, DataAnalyzer> DataAnalyzers { get; set; }
+        public Dictionary<string, DataPredictions> DataPredictions { get; set; }
 
         public float AccountBallance { get; set; }
 
@@ -50,19 +50,19 @@ namespace StocksSimulation
         {
             EffectivePredictionResult = 0.9F;
             DataSets = new Dictionary<string, DataSet>();
-            DataAnalyzers = new Dictionary<string, DataAnalyzer>();
+            DataPredictions = new Dictionary<string, DataPredictions>();
 
             foreach (string stockFile in stocksFiles)
             {
                 DataSet dataSet = new DataSet(datasetsFolder + stockFile, TestDataAction.LeaveOnlyTestData);
-                DataAnalyzer dataAnalyzer = new DataAnalyzer(dataAnalyzersFolder + dataSet.DataSetName + DSSettings.AnalyzerDataSetSuffix + ".csv", dataSet);
+                DataPredictions dataPredictions = new DataPredictions(dataAnalyzersFolder + dataSet.DataSetName + DSSettings.PredictionDataSetSuffix + ".csv", dataSet);
                 DataSets.Add(dataSet.DataSetName, dataSet);
-                DataAnalyzers.Add(dataSet.DataSetName, dataAnalyzer);
-                m_AnalyzerRecords.AddRange(dataAnalyzer.GetBestPredictions(AnalyzerSimulator.EffectivePredictionResult));
+                DataPredictions.Add(dataSet.DataSetName, dataPredictions);
+                m_PredictionRecords.AddRange(dataPredictions.GetBestPredictions(AnalyzerSimulator.EffectivePredictionResult));
             }
 
-            m_AnalyzerRecords = m_AnalyzerRecords.OrderByDescending(x => x.PredictionCorrectness).ToList();
-            Investments = new List<StocksSimulation.Investment>();
+            m_PredictionRecords = m_PredictionRecords.OrderByDescending(x => x.PredictionCorrectness).ToList();
+            Investments = new List<Investment>();
             AccountBallance = 0.0F;
             TotalProfit = 0.0F;
         }
@@ -81,14 +81,14 @@ namespace StocksSimulation
             for (float effectivePredictionResult = 0.9F; effectivePredictionResult <= 0.9; effectivePredictionResult += 0.002F)
             {
                 EffectivePredictionResult = effectivePredictionResult;
-                m_AnalyzerRecords.RemoveAll(x => x.PredictionCorrectness < effectivePredictionResult);
-                for (float minProfitRatio = 0.005F; minProfitRatio <= 0.015F; minProfitRatio += 0.01F)
+                m_PredictionRecords.RemoveAll(x => x.PredictionCorrectness < effectivePredictionResult);
+                for (float minProfitRatio = 0.005F; minProfitRatio <= 0.005F; minProfitRatio += 0.01F)
                 {
                     MinProfitRatio = minProfitRatio;
-                    for (float maxLooseRatio = -0.001F; maxLooseRatio >= -0.005F; maxLooseRatio -= 0.001F)
+                    for (float maxLooseRatio = -0.001F; maxLooseRatio >= -0.001F; maxLooseRatio -= 0.001F)
                     {
                         MaxLooseRatio = maxLooseRatio;
-                        for (int maxInvestmentPerStock = 2; maxInvestmentPerStock <= 2; maxInvestmentPerStock++)
+                        for (int maxInvestmentPerStock = 25; maxInvestmentPerStock <= 25; maxInvestmentPerStock++)
                         {
                             MaxInvestmentsPerStock = maxInvestmentPerStock;
                             for (int maxNumOfInvestments = 25; maxNumOfInvestments <= 25; maxNumOfInvestments += 25)
@@ -120,17 +120,17 @@ namespace StocksSimulation
 
         public void TestAnalyzeResults(string testFolderPath)
         {
-            List<DataAnalyzer> testDataAnalyzers = new List<DataAnalyzer>();
-            foreach (DataAnalyzer dataAnalyzer in DataAnalyzers.Values)
+            List<DataPredictions> testDataAnalyzers = new List<DataPredictions>();
+            foreach (DataPredictions dataAnalyzer in DataPredictions.Values)
             {
-                DataAnalyzer testDataAnalyzer = dataAnalyzer.AnalyzeGPUTest();
+                DataPredictions testDataAnalyzer = dataAnalyzer.PredictionGPUTest();
                 testDataAnalyzers.Add(testDataAnalyzer);
                 testDataAnalyzer.SaveDataToFile(testFolderPath);
             }
-            CompareTestResults(DataAnalyzers.Values.ToList(), testDataAnalyzers);
+            CompareTestResults(DataPredictions.Values.ToList(), testDataAnalyzers);
         }
 
-        static public void CompareTestResults(List<DataAnalyzer> dataAnalyzers, List<DataAnalyzer> testDataAnalyzers)
+        static public void CompareTestResults(List<DataPredictions> dataAnalyzers, List<DataPredictions> testDataAnalyzers)
         {
             float[] totalNumOfPreditions = new float[dataAnalyzers[0].NumOfDataColumns];
             float[] totalSum = new float[dataAnalyzers[0].NumOfDataColumns];
@@ -138,8 +138,8 @@ namespace StocksSimulation
 
             for (int i = 0; i < dataAnalyzers.Count; i++)
             {
-                DataAnalyzer dataAnalyzer = dataAnalyzers[i];
-                DataAnalyzer testDataAnalyzer = testDataAnalyzers[i];
+                DataPredictions dataAnalyzer = dataAnalyzers[i];
+                DataPredictions testDataAnalyzer = testDataAnalyzers[i];
                 float[] numOfPreditions = new float[dataAnalyzer.NumOfDataColumns];
                 float[] sum = new float[dataAnalyzer.NumOfDataColumns];
                 float[] testSum = new float[dataAnalyzer.NumOfDataColumns];
@@ -165,7 +165,7 @@ namespace StocksSimulation
                     if (numOfPreditions[j] > 0)
                     {
                         Console.WriteLine("Prediction {0}, predicted average {1}, tested average {2}, num of predictions {3}",
-                            DSSettings.AnalyzeItems[j].ToString(), sum[j] / numOfPreditions[j], testSum[j] / numOfPreditions[j], numOfPreditions[j]);
+                            DSSettings.PredictionItems[j].ToString(), sum[j] / numOfPreditions[j], testSum[j] / numOfPreditions[j], numOfPreditions[j]);
                     }
                 }
             }
@@ -183,7 +183,7 @@ namespace StocksSimulation
                 if (totalNumOfPreditions[j] > 0)
                 {
                     Console.WriteLine("Prediction {0}, predicted average {1}, tested average {2}, num of predictions {3}",
-                        DSSettings.AnalyzeItems[j].ToString(), totalSum[j] / totalNumOfPreditions[j], totalTestSum[j] / totalNumOfPreditions[j], totalNumOfPreditions[j]);
+                        DSSettings.PredictionItems[j].ToString(), totalSum[j] / totalNumOfPreditions[j], totalTestSum[j] / totalNumOfPreditions[j], totalNumOfPreditions[j]);
                 }
             }
 
@@ -195,7 +195,7 @@ namespace StocksSimulation
 
         #region Private Methods
 
-        private void CompareTestResults(DataAnalyzer dataAnalyzer, DataAnalyzer testDataAnalyzer)
+        private void CompareTestResults(DataPredictions dataAnalyzer, DataPredictions testDataAnalyzer)
         {
             float predictionLimit = 0.85F;
             float[] numOfPreditions = new float[dataAnalyzer.NumOfDataColumns];
@@ -219,7 +219,7 @@ namespace StocksSimulation
                 if (numOfPreditions[i] > 0)
                 {
                     Console.WriteLine("Prediction {0}, predicted average {1}, tested average {2}, num of predictions {3}",
-                        DSSettings.AnalyzeItems[i].ToString(), sum[i] / numOfPreditions[i], testSum[i] / numOfPreditions[i], numOfPreditions[i]);
+                        DSSettings.PredictionItems[i].ToString(), sum[i] / numOfPreditions[i], testSum[i] / numOfPreditions[i], numOfPreditions[i]);
                 }
             }
         }
@@ -250,6 +250,10 @@ namespace StocksSimulation
 
         private void ReleaseInvestments(int day)
         {
+            //for (int i = 0; i < Investments.Count; i++)
+            //{
+            //    ReleaseInvestment(day, Investments.First());
+            //}
             List<Investment> investmentsToRelease = Investments.Where(x => x.IsEndOfInvestment).ToList();
             foreach (Investment investment in investmentsToRelease)
             {
@@ -275,7 +279,7 @@ namespace StocksSimulation
             }
             TotalProfit += investment.GetProfit(day);
             Log.AddMessage("Release investment of {0} with prediction {1}:", investment.DataSet.DataSetName, investment.PredictedChange.ToString());
-            Log.AddMessage("AccountBalance {0}, release profit {1}, total profit {2}", AccountBallance, investment.GetProfit(day), TotalProfit);
+            Log.AddMessage("AccountBalance {0}, release profit {1}, total profit {2}, correctness {3}, {4} predictions", AccountBallance, investment.GetProfit(day), TotalProfit, investment.Analyze.AverageCorrectness, investment.Analyze.NumOfPredictions);
             Investments.Remove(investment);
         }
 
@@ -312,11 +316,26 @@ namespace StocksSimulation
 
         private void CreateNewInvestments(DailyAnalyzes dailyAnalyzes, int day)
         {
-            if (day == 0)
-            {
-                return;
-            }
+            //if (day == 0)
+            //{
+            //    return;
+            //}
 
+            //List<Analyze> analyzes = new List<Analyze>();
+            //foreach (DataSetAnalyzes dataSetAnalyze in dailyAnalyzes.Values)
+            //{
+            //    analyzes.AddRange(dataSetAnalyze.Values);
+            //}
+
+            //foreach (Analyze analyze in analyzes.OrderByDescending(x => x.AverageCorrectness))
+            //{
+            //    if (Investments.Count < MaxNumOfInvestments)
+            //    {
+            //        AddInvestment(day, analyze);
+            //    }
+            //}
+
+            //return;
             foreach (DataSetAnalyzes dataSetAnalyze in dailyAnalyzes.Values)
             {
                 foreach (Analyze analyze in dataSetAnalyze.Values.OrderByDescending(x => x.AverageCorrectness))
@@ -364,11 +383,11 @@ namespace StocksSimulation
         private List<PredictionRecord> GetRelevantPredictions(int dataSetRow)
         {
             List<PredictionRecord> fitAnalyzerRecords = new List<PredictionRecord>();
-            foreach (PredictionRecord analyzerRecord in m_AnalyzerRecords)
+            foreach (PredictionRecord predictionRecord in m_PredictionRecords)
             {
-                if (IsAnalyzeFits(dataSetRow, analyzerRecord))
+                if (IsAnalyzeFits(dataSetRow, predictionRecord))
                 {
-                    fitAnalyzerRecords.Add(analyzerRecord);
+                    fitAnalyzerRecords.Add(predictionRecord);
                 }
             }
             //for (int i = 0; i < 10 && i < fitAnalyzerRecords.Count; i++)
@@ -379,11 +398,11 @@ namespace StocksSimulation
             return fitAnalyzerRecords;
         }
 
-        private bool IsAnalyzeFits(int dataSetRow, PredictionRecord analyzerRecord)
+        private bool IsAnalyzeFits(int dataSetRow, PredictionRecord predictionRecord)
         {
-            foreach (CombinationItem combinationItem in analyzerRecord.Combination)
+            foreach (CombinationItem combinationItem in predictionRecord.Combination)
             {
-                if (!DataAnalyzers[analyzerRecord.DataSet.DataSetName].IsContainsPrediction(combinationItem, dataSetRow, -DSSettings.PredictionErrorRange, DSSettings.PredictionErrorRange))
+                if (!DataPredictions[predictionRecord.DataSet.DataSetName].IsContainsPrediction(combinationItem, dataSetRow, -DSSettings.PredictionErrorRange, DSSettings.PredictionErrorRange))
                 {
                     return false;
                 }

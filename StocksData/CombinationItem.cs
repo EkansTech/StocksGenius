@@ -41,7 +41,7 @@ namespace StocksData
 
         public ulong ToULong()
         {
-            return ((ulong)1) << (DSSettings.PredictionItemsMap[this]);
+            return ((ulong)1) << (DSSettings.ChangeItemsMap[this]);
         }
 
         static public CombinationItem Item(DataItem dataItem, byte range)
@@ -53,7 +53,7 @@ namespace StocksData
         {
             List<CombinationItem> combinationItems = new List<CombinationItem>();
             ulong combinationItem = 1;
-            for (int combinationItemNum = 0; combinationItemNum < DSSettings.PredictionItems.Count; combinationItemNum++)
+            for (int combinationItemNum = 0; combinationItemNum < DSSettings.ChangeItems.Count; combinationItemNum++)
             {
                 if ((combination & combinationItem) != 0)
                 {

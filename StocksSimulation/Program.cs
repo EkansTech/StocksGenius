@@ -25,7 +25,7 @@ namespace StocksSimulation
             analyzerSimulator.Simulate();
 
             //Console.Write(Log.ToString());
-            //Log.SaveLogToFile(@"C:\Ekans\Stocks\Quandl\AnalyzeSimulator.log");
+            Log.SaveLogToFile(@"C:\Ekans\Stocks\Quandl\AnalyzeSimulator.log");
 
             List<SimRecorder> recorders = new List<SimRecorder>();
             foreach (string filePath in Directory.GetFiles(stocksDataPath + iForexAnalyzerRecordsFolder))

@@ -103,11 +103,11 @@ namespace StocksSimulation
         {
             if (InvestmentType == BuySell.Buy)
             {
-                return balance - GetReleasePrice(day);
+                return balance - GetInvestmentMoney(Ammount, DataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], BuySell.Buy);
             }
             else
             {
-                return balance + GetReleasePrice(day);
+                return balance + GetInvestmentMoney(Ammount, DataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], BuySell.Sell);
             }
         }
 

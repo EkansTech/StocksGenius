@@ -23,7 +23,12 @@ namespace StocksData
         public XigniteDataSource()
         {
         }
-        
+
+        public override List<string> GetDataSetsList(string workingDirectory)
+        {
+            throw new NotImplementedException();
+        }
+
         #endregion
 
         #region Interface
@@ -59,6 +64,11 @@ namespace StocksData
                     }
                 }
             }
+        }
+
+        public override void UpdateDataSets(string workingDirectory)
+        {
+            throw new NotImplementedException();
         }
 
         #endregion

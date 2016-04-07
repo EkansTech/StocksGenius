@@ -79,8 +79,8 @@
     <Compile Include="PredictionRecord.cs" />
     <Compile Include="BloombergDataSource.cs" />
     <Compile Include="CombinationItem.cs" />
-    <Compile Include="Settings.cs" />
-    <Compile Include="DataAnalyzer.cs" />
+    <Compile Include="SDSettings.cs" />
+    <Compile Include="DataPredictions.cs" />
     <Compile Include="Definitions.cs" />
     <Compile Include="GPUMethods.cs" />
     <Compile Include="Program.cs" />

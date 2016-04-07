@@ -10,32 +10,22 @@ namespace StocksData
     {
         public const string DataSetsDir = "\\DataSets\\";
 
-        public const string ChangeDataSetsDir = "\\ChangeDataSets\\";
+        public const string PredictionDataSetSuffix = "-Predictions";
 
-        public const string PredictionsDataSetsDir = "\\PredictionDataSets\\";
+        public const string PredictionDataSetsDir = "\\Predictions\\";
 
-        public const string AnalyzesDataSetsDir = "\\AnalyzeDataSets\\";
-
-        public const string ChangeDataSetSuffix = "-Changes";
-
-        public const string PredictionDataSetSuffix = "-Prediction";
-
-        public const string AnalyzeDataSetSuffix = "-Analyze";
+        public const string DataSetCodesFile = "WIKI-datasets-codes.csv";
 
         public const int RelevantHistory = 100;
 
         public const float PredictionErrorRange = 0.000F;
 
-        public const int MinimumPredictionsForAnalyze = 50;
+        public const int MinimumChangesForPrediction = 50;
 
         public const int TestRange = 100;
 
-        public static readonly List<CombinationItem> AnalyzeItems = new List<CombinationItem>()
+        public static readonly List<CombinationItem> PredictionItems = new List<CombinationItem>()
         {
-            new CombinationItem(1, DataItem.CloseOpenDif),
-            new CombinationItem(1, DataItem.OpenPrevCloseDif),
-            new CombinationItem(1, DataItem.NegativeCloseOpenDif),
-            new CombinationItem(1, DataItem.NegativeOpenPrevCloseDif),
             new CombinationItem(3, DataItem.OpenChange),
             new CombinationItem(3, DataItem.NegativeOpenChange),
             new CombinationItem(6, DataItem.OpenChange),
@@ -44,19 +34,15 @@ namespace StocksData
             new CombinationItem(9, DataItem.NegativeOpenChange),
         };
 
-        public const int AnalyzeMaxCombinationSize = 9;
+        public const int PredictionMaxCombinationSize = 9;
 
-        public const string AnalyzerDataSetSuffix = "-Analyzer";
+        public const float MinimumRelevantPredictionResult = 0.85F;
 
-        public const string AnalyzerDataSetsDir = "\\Analyzer\\";
+        public static readonly int GPUCycleSize = 1024 * 1024;
 
-        public const float MinimumRelevantAnalyzeResult = 0.85F;
+        public readonly static List<DataItem> DataItems = DataPredictions.GetDataItems();
 
-        public static readonly int GPUCycleSize = 1024 * 1024;// * AnalyzeItems.Count;
-
-        public readonly static List<DataItem> DataItems = DataAnalyzer.GetDataItems();
-
-        public static readonly List<CombinationItem> PredictionItems = new List<CombinationItem>()
+        public static readonly List<CombinationItem> ChangeItems = new List<CombinationItem>()
         {
             new CombinationItem(1, DataItem.CloseOpenDif),
             new CombinationItem(1, DataItem.OpenPrevCloseDif),
@@ -93,8 +79,8 @@ namespace StocksData
 
         };
 
-        public static readonly Dictionary<CombinationItem, byte> PredictionItemsMap = PredictionItems.Select(x => (byte)PredictionItems.IndexOf(x)).ToDictionary(x => PredictionItems[x]);
-        public static readonly Dictionary<ulong, CombinationItem> ULongToCombinationItemMap = PredictionItems.ToDictionary(x => x.ToULong());
+        public static readonly Dictionary<CombinationItem, byte> ChangeItemsMap = ChangeItems.Select(x => (byte)ChangeItems.IndexOf(x)).ToDictionary(x => ChangeItems[x]);
+        public static readonly Dictionary<ulong, CombinationItem> ULongToCombinationItemMap = ChangeItems.ToDictionary(x => x.ToULong());
 
         public static readonly List<DataItem> PositiveChanges = new List<DataItem>()
         {

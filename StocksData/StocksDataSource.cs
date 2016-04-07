@@ -16,6 +16,10 @@ namespace StocksData
 
         #region Interface
 
+        public abstract List<string> GetDataSetsList(string workingDirectory);
+
+        public abstract void UpdateDataSets(string workingDirectory);
+
         public abstract void LoadAllDataToFolder(string path, string databaseName);
 
         #endregion

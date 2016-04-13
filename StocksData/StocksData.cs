@@ -62,7 +62,7 @@ namespace StocksData
             foreach (string dataSet in m_DataSets)
             {
                 m_DataSetPaths.Add(dataSet, workingDirectory + DSSettings.DataSetsDir + dataSet + ".csv");
-                m_DataPredictionsPaths.Add(dataSet, workingDirectory + DSSettings.PredictionDataSetsDir + dataSet + DSSettings.PredictionDataSetSuffix + ".csv");
+                m_DataPredictionsPaths.Add(dataSet, workingDirectory + DSSettings.PredictionDir + dataSet + DSSettings.PredictionSuffix + ".csv");
             }
         }
 
@@ -70,7 +70,7 @@ namespace StocksData
 
         #region Interface
 
-        public List<PredictionRecord> LoadPredictions(float effectivePredictionResult)
+        public List<PredictionRecord> LoadPredictions(double effectivePredictionResult)
         {
             List<PredictionRecord> predictionRecords = new List<PredictionRecord>();
             foreach (string dataSetName in m_DataSets)
@@ -89,7 +89,7 @@ namespace StocksData
 
         public void BuildDataPredictions()
         {
-            string predictionsDirectory = WorkingDirectory + DSSettings.PredictionDataSetsDir;
+            string predictionsDirectory = WorkingDirectory + DSSettings.PredictionDir;
             if (!Directory.Exists(predictionsDirectory))
             {
                 Directory.CreateDirectory(predictionsDirectory);
@@ -97,8 +97,8 @@ namespace StocksData
 
             int dataSetNumber = 0;
 
-            float loadTime = 0;
-            float gpuTime = 0;
+            double loadTime = 0;
+            double gpuTime = 0;
             foreach (string dataSetName in m_DataSets)
             {
                 //if (datasetNumber > 0)
@@ -111,13 +111,13 @@ namespace StocksData
                 //Console.Write(new string(' ', Console.WindowWidth));
                 //Console.SetCursorPosition(0, Console.CursorTop - 1);
                 Console.WriteLine("Current Stock: {0}", dataSetName);
-                Console.WriteLine("Completed {0}%", (((float)dataSetNumber) / (float)m_DataSets.Count * 100.0).ToString("0.00"));
+                Console.WriteLine("Completed {0}%", (((double)dataSetNumber) / (double)m_DataSets.Count * 100.0).ToString("0.00"));
 
 
                 DataSet dataSet = new DataSet(m_DataSetPaths[dataSetName]);
                 DateTime timePoint = DateTime.Now;
                 DataPredictions dataPredictions = new DataPredictions(dataSet, predictionsDirectory, true);
-                loadTime += (float)(DateTime.Now - timePoint).TotalMilliseconds;
+                loadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
                 gpuTime += dataPredictions.GPULoadTime;
                 dataPredictions.SaveDataToFile(predictionsDirectory);
             }
@@ -129,6 +129,42 @@ namespace StocksData
             return;
         }
 
+        public void BuildDataLatestPredictions()
+        {
+            string latestpredictionsDirectory = WorkingDirectory + DSSettings.LatestPredictionsDir;
+            string currentProject = WorkingDirectory.Split(Path.DirectorySeparatorChar).Last(x => !string.IsNullOrWhiteSpace(x));
+            string latestPredictionsFilePath = latestpredictionsDirectory + currentProject + DSSettings.LatestPredictionsSuffix + ".csv";
+            if (!Directory.Exists(latestpredictionsDirectory))
+            {
+                Directory.CreateDirectory(latestpredictionsDirectory);
+            }
+
+            double loadTime = 0;
+            double gpuTime = 0;
+
+            Console.WriteLine("Current Set: {0}", currentProject);
+
+            DateTime timePoint = DateTime.Now;
+            LatestPredictions dataPredictions = new LatestPredictions(m_DataSetPaths.Values.ToList(), latestPredictionsFilePath, true);
+            loadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
+            gpuTime += dataPredictions.GPULoadTime;
+            dataPredictions.SaveDataToFile(latestpredictionsDirectory);
+
+            Console.WriteLine(string.Format("Latest Prediction time = {0}, GPU total time - {1}", loadTime / 1000, gpuTime / 1000));
+            Console.WriteLine();
+            Console.ReadKey();
+
+            return;
+        }
+
+        public void AnalyzeChangesEffects()
+        {
+            string latestpredictionsDirectory = WorkingDirectory + DSSettings.LatestPredictionsDir;
+            string currentProject = WorkingDirectory.Split(Path.DirectorySeparatorChar).Last(x => !string.IsNullOrWhiteSpace(x));
+            string latestPredictionsFilePath = latestpredictionsDirectory + currentProject + DSSettings.LatestPredictionsSuffix + ".csv";
+            
+        }
+
         public void BuildiForexPredictions()
         {
             int datasetNumber = 0;
@@ -136,8 +172,8 @@ namespace StocksData
             string iForexStocksListFile = "iForexStocks.txt";
 
             Dictionary<string /*stock name*/, string /*stock dataset file*/> iForexFiles = LoadStocksListFile(WorkingDirectory + iForexStocksListFile);
-            float loadTime = 0;
-            float gpuTime = 0;
+            double loadTime = 0;
+            double gpuTime = 0;
             foreach (string stockName in iForexFiles.Keys)
             {
                 string dataSetsPath = WorkingDirectory + DSSettings.DataSetsDir + iForexFiles[stockName];
@@ -151,13 +187,13 @@ namespace StocksData
                 //Console.Write(new string(' ', Console.WindowWidth));
                 //Console.SetCursorPosition(0, Console.CursorTop - 1);
                 Console.WriteLine("Current Stock: {0}", stockName);
-                Console.WriteLine("Completed {0}%", (((float)datasetNumber) / (float)iForexFiles.Count * 100.0).ToString("0.00"));
+                Console.WriteLine("Completed {0}%", (((double)datasetNumber) / (double)iForexFiles.Count * 100.0).ToString("0.00"));
 
                 
-                DataSet dataSet = new DataSet(dataSetsPath, TestDataAction.RemoveTestData);
+                DataSet dataSet = new DataSet(dataSetsPath, TestDataAction.LoadOnlyPredictionData);
                 DateTime timePoint = DateTime.Now;
                 DataPredictions dataPredictions = new DataPredictions(dataSet, WorkingDirectory + iForexPredictionsFolder,true);
-                loadTime += (float)(DateTime.Now - timePoint).TotalMilliseconds;
+                loadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
                 gpuTime += dataPredictions.GPULoadTime;
                 dataPredictions.SaveDataToFile(WorkingDirectory + iForexPredictionsFolder);
             }

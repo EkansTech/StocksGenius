@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace StocksData
 {
-    public class DataPredictions : Dictionary<ulong /*Combination*/, List<double>>
+    public class LatestPredictions : Dictionary<ulong /*Combination*/, List<double>>
     {
         #region Members
 
@@ -24,7 +24,7 @@ namespace StocksData
         private bool[] m_GPUOnBadSequence = null;
         private ulong[] m_GPUBadSequenceNum = null;
 
-        private GPUPredictions m_GPUPredictions = null;
+        private GPULatestPredictions m_GPUPredictions = null;
 
         private byte m_LasPredictedSize = 0;
 
@@ -48,75 +48,60 @@ namespace StocksData
             get { return Count / NumOfDataColumns; }
         }
 
-        private string m_PredictionDataSetName = string.Empty;
+        private string m_PredictionsName = string.Empty;
 
-        public string PredictionDataSetName
+        public string PredictionsName
         {
-            get { return m_PredictionDataSetName; }
-            set { m_PredictionDataSetName = value; }
+            get { return m_PredictionsName; }
+            set { m_PredictionsName = value; }
         }
 
-        public int MinimumChangesForPrediction
-        {
-            get
-            {
-                return (DataSet.NumOfRows * 0.01 < 100) ? 100 : (int)(DataSet.NumOfRows * 0.01);
-            }
-        }
-
-        public DataSet DataSet { get; private set; }
+        public List<DataSet> DataSets { get; private set; }
         public double GPULoadTime { get; internal set; }
 
         #endregion
 
         #region Constructors
 
-        private DataPredictions(DataPredictions dataPredictions)
+        private LatestPredictions(LatestPredictions latestPredictions)
         {
-            DataSet = dataPredictions.DataSet;
-            PredictionDataSetName = dataPredictions.PredictionDataSetName;
+            DataSets = latestPredictions.DataSets;
+            PredictionsName = latestPredictions.PredictionsName;
         }
 
-        public DataPredictions(string dataSetFilePath, string dataPredictionFilePath)
+        public LatestPredictions(List<DataSet> dataSets, string latestPredictionsFilePath)
         {
-            DataSet = new DataSet(dataSetFilePath);
+            DataSets = dataSets;
+            LoadFromFile(latestPredictionsFilePath);
+            m_PredictionsName = Path.GetFileNameWithoutExtension(latestPredictionsFilePath);
+        }
+
+        public LatestPredictions(string dataPredictionFilePath, List<string> dataSetFilePaths)
+        {
             LoadFromFile(dataPredictionFilePath);
-            m_PredictionDataSetName = Path.GetFileNameWithoutExtension(dataPredictionFilePath);
-            // CaclulatePredictions();
-        }
-
-        public DataPredictions(string filePath, DataSet dataSet)
-        {
-            LoadFromFile(filePath);
-            DataSet = dataSet;
-            m_PredictionDataSetName = Path.GetFileNameWithoutExtension(filePath);
-           // CaclulatePredictions();
-        }
-
-        public DataPredictions(DataSet dataSet, string predictionFolder, bool useGPU = true)
-        {
-            DataSet = dataSet;
-            m_PredictionDataSetName = DataSet.DataSetName + DSSettings.PredictionSuffix;
-            string filePath = predictionFolder + "\\" + PredictionDataSetName + ".csv";
-
-            if (File.Exists(filePath))
+            DataSets = new List<DataSet>();
+            foreach (string dataSetFilePath in dataSetFilePaths)
             {
-                LoadFromFile(filePath, true);
+                DataSets.Add(new DataSet(dataSetFilePath));
+            }
+            m_PredictionsName = Path.GetFileNameWithoutExtension(dataPredictionFilePath);
+        }
+
+        public LatestPredictions(List<string> dataSetFilePaths, string dataPredictionFilePath, bool useGPU = true)
+        {
+            DataSets = new List<DataSet>();
+            foreach (string dataSetFilePath in dataSetFilePaths)
+            {
+                DataSets.Add(new DataSet(dataSetFilePath, TestDataAction.LoadOnlyPredictionData));
+            }
+            m_PredictionsName = Path.GetFileNameWithoutExtension(dataPredictionFilePath);
+
+            if (File.Exists(dataPredictionFilePath))
+            {
+                LoadFromFile(dataPredictionFilePath, true);
             }
 
             LoadFromDataSet(useGPU);
-        }
-
-        public void AnalyzeChangesEffects()
-        {
-            Dictionary<CombinationItem, Dictionary<string, string>> changeEffects = new Dictionary<CombinationItem, Dictionary<string, string>>();
-            foreach (ulong changeItem in DSSettings.ULongToCombinationItemMap.Keys)
-            {
-                CombinationItem combinationItem = DSSettings.ULongToCombinationItemMap[changeItem];
-                changeEffects.Add(combinationItem, new Dictionary<string, string>());
-                double instances = Keys.Where(x => (x & changeItem) == changeItem).Count();
-                Console.WriteLine("Num of combinations containing {0} is {1} - {2}%", combinationItem.ToString(), Keys.Where(x => (x & changeItem) == changeItem).Count(), instances, instances / (double)Count * 100);
-            }
         }
 
         #endregion
@@ -132,7 +117,6 @@ namespace StocksData
             }
             else
             {
-                PredictCPU();
             }
         }
 
@@ -151,9 +135,9 @@ namespace StocksData
             }
             m_LasPredictedSize = (Count > 0) ? (byte)CombinationItem.ULongToCombinationItems(this.Last().Key).Count : (byte)1;
 
-            if (loadBadPredictions && File.Exists(filePath.Substring(0, filePath.LastIndexOf('\\')) + "\\" + PredictionDataSetName + "_BadCombinations.csv"))
+            if (loadBadPredictions && File.Exists(filePath.Substring(0, filePath.LastIndexOf('\\')) + "\\" + PredictionsName + "_BadCombinations.csv"))
             {
-                using (StreamReader reader = new StreamReader(filePath.Substring(0, filePath.LastIndexOf('\\')) + "\\" + PredictionDataSetName + "_BadCombinations.csv"))
+                using (StreamReader reader = new StreamReader(filePath.Substring(0, filePath.LastIndexOf('\\')) + "\\" + PredictionsName + "_BadCombinations.csv"))
                 {
                     while (!reader.EndOfStream)
                     {
@@ -174,7 +158,7 @@ namespace StocksData
         }
         public void SaveDataToFile(string folderPath)
         {
-            using (StreamWriter csvFile = new StreamWriter(folderPath + "\\" + PredictionDataSetName + ".csv"))
+            using (StreamWriter csvFile = new StreamWriter(folderPath + "\\" + PredictionsName + ".csv"))
             {
                 // Write the first line
                 csvFile.WriteLine(GetColumnNamesString());
@@ -184,7 +168,7 @@ namespace StocksData
                     csvFile.WriteLine(GetDataString(combination));
                 }
             }
-            using (StreamWriter writer = new StreamWriter(folderPath + "\\" + PredictionDataSetName + "_BadCombinations.csv"))
+            using (StreamWriter writer = new StreamWriter(folderPath + "\\" + PredictionsName + "_BadCombinations.csv"))
             {
                 foreach (byte size in m_GPUBadCombinations.Keys)
                 {
@@ -232,7 +216,6 @@ namespace StocksData
                             Combination = CombinationItem.ULongToCombinationItems(combination),
                             PredictionCorrectness = this[combination][dataColumn],
                             PredictedChange = DSSettings.PredictionItems[dataColumn],
-                            DataSet = DataSet,
                         });
                     }
                 }
@@ -244,16 +227,6 @@ namespace StocksData
         #endregion
 
         #region Private Methods
-
-        private void InitializePredictedCollectionsCPU()
-        {
-            InitializeOneItemPredictedCollections();
-
-            for (int combinationSize = 2; combinationSize <= DSSettings.PredictionMaxCombinationSize; combinationSize++)
-            {
-                InitializePredictedCollectionsCPU(combinationSize);
-            }
-        }
 
         private void InitializePredictedCollectionsCPU(int combinationSize, ulong combination = 0, int combinationPart = 0, int startPosition = 0)
         {
@@ -267,7 +240,7 @@ namespace StocksData
                 if (combinationPart == combinationSize - 1)
                 {
                     List<int> predictions = CombineLists(m_PredictedCollections[combination], m_PredictedCollections[DSSettings.ChangeItems[i].ToULong()]);
-                    if (predictions.Count >= MinimumChangesForPrediction)
+                    if (predictions.Count >= DSSettings.MinimumChangesForPrediction)
                     {
                         m_PredictedCollections.Add(combination | DSSettings.ChangeItems[i].ToULong(), predictions);
                     }
@@ -336,100 +309,54 @@ namespace StocksData
             return combinedList;
         }
 
-        private void InitializeOneItemPredictedCollections()
-        {
-            if (DataSet == null)
-            {
-                return;
-            }
-
-            m_PredictedCollections = new Dictionary<ulong, List<int>>();
-            foreach (CombinationItem combinationItem in DSSettings.ChangeItems.OrderBy(x => x))
-            {
-                List<int> combinationPredictions = new List<int>();
-                ulong combinationItemULong = combinationItem.ToULong();
-
-                for (int dataRow = 0; dataRow < DataSet.NumOfRows - combinationItem.Range * 3; dataRow++)
-                {
-                    if (IsContainsPrediction(combinationItem, dataRow + combinationItem.Range, -DSSettings.PredictionErrorRange, DSSettings.PredictionErrorRange))
-                    {
-                        combinationPredictions.Add(dataRow);
-                    }
-                }
-
-                if (combinationPredictions.Count >= MinimumChangesForPrediction)
-                {
-                    m_PredictedCollections.Add(combinationItemULong, combinationPredictions);
-                }
-            }
-        }
-
-        public bool IsContainsPrediction(CombinationItem combinationItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
+        public bool IsContainsPrediction(DataSet dataSet, CombinationItem combinationItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
         {
             if (combinationItem.DataItem == DataItem.OpenChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false) > upperErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.CloseChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, false) > upperErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, false) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.VolumeChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, false) > upperErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, false) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.CloseOpenDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, true) > upperErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, true) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.OpenPrevCloseDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, false) > upperErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, false) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeOpenChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false) < lowerErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false) < lowerErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeCloseChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, false) < lowerErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, false) < lowerErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeVolumeChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, false) < lowerErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, false) < lowerErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeCloseOpenDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, true) < lowerErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, true) < lowerErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeOpenPrevCloseDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, false) < lowerErrorBorder)
+                && CalculateChange(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, false) < lowerErrorBorder)
             { return true; }
 
             return false;
         }
 
-        private double CalculateChange(int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, bool isDifFromCurrentDate)
+        private double CalculateChange(DataSet dataSet, int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, bool isDifFromCurrentDate)
         {
             int dataOfStartPosition = isDifFromCurrentDate ? 0 : range;
             double sumOf = 0;
             double sumFrom = 0;
             for (int i = dataRow; i < dataRow + range; i++)
             {
-                sumOf += DataSet[(i + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
-                sumFrom += DataSet[i * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
+                sumOf += dataSet[(i + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
+                sumFrom += dataSet[i * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
             }
 
             return (sumFrom - sumOf) / sumOf / range;
-        }
-
-        private void PredictCPU()
-        {
-            InitializePredictedCollectionsCPU();
-
-            Console.WriteLine();
-            int i = 1;
-            foreach (ulong combination in m_PredictedCollections.Keys)
-            {
-                DoPredictionCombination(combination);
-
-                Console.SetCursorPosition(0, Console.CursorTop - 1);
-                Console.Write(new string(' ', Console.WindowWidth));
-                Console.SetCursorPosition(0, Console.CursorTop - 1);
-                Console.WriteLine("Predicted {0}%", (((double)i) / (double)m_PredictedCollections.Count * 100.0).ToString("0.00"));
-                i++;
-            }
         }
 
         private void PredictGPU()
@@ -437,9 +364,14 @@ namespace StocksData
             //InitializeOneItemPredictedCollections();
 
             m_GPUCombinations = new ulong[DSSettings.GPUCycleSize];
+            double[] dataSetsData = DataSets[0].ToArray();
+            for (int i = 1; i < DataSets.Count; i++)
+            {
+                dataSetsData = dataSetsData.Concat(DataSets[i]).ToArray();
+            }
             
             DateTime timePoint = DateTime.Now;
-            m_GPUPredictions = new GPUPredictions(DataSet.ToArray(), 
+            m_GPUPredictions = new GPULatestPredictions(dataSetsData, DataSets.Count, 
                 DSSettings.ChangeItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
                 DSSettings.ChangeItems.Select(x => x.Range).ToArray(),
                 DSSettings.PredictionItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
@@ -478,9 +410,9 @@ namespace StocksData
             m_GPUPredictions.FreeGPU();
         }
 
-        public DataPredictions PredictionGPUTest()
+        public LatestPredictions PredictionGPUTest()
         {
-            DataPredictions dataPredictionTest = new DataPredictions(this);
+            LatestPredictions dataPredictionTest = new LatestPredictions(this);
 
             foreach (ulong key in Keys)
             {
@@ -508,8 +440,13 @@ namespace StocksData
                     Array.Copy(gpuCombinationsItems[combinationSize][combination], 0, combinations, i * combinationSize, combinationSize);
                     i++;
                 }
+                double[] dataSetsData = DataSets[0].ToArray();
+                for (int j = 1; j < DataSets.Count; j++)
+                {
+                    dataSetsData = dataSetsData.Concat(DataSets[j]).ToArray();
+                }
 
-                m_GPUPredictions = new GPUPredictions(DataSet.ToArray(),
+                m_GPUPredictions = new GPULatestPredictions(dataSetsData, DataSets.Count,
                     DSSettings.ChangeItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
                     DSSettings.ChangeItems.Select(x => x.Range).ToArray(),
                     DSSettings.PredictionItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
@@ -602,7 +539,7 @@ namespace StocksData
             m_GPUCyclesPerSize++;
             DateTime timePoint = DateTime.Now;
             double[] predictionResultsArray = m_GPUPredictions.PredictCombinations(m_GPUCombinationsItems, 
-                combinationSize, m_GPUCombinationNum, MinimumChangesForPrediction, DSSettings.MinimumRelevantPredictionResult);
+                combinationSize, m_GPUCombinationNum, DSSettings.MinimumChangesForPrediction, DSSettings.MinimumRelevantPredictionResult);
             GPULoadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
             Console.WriteLine("{0} seconds for {1} combinations", (DateTime.Now - timePoint).TotalMilliseconds / 1000, m_GPUCombinationNum);
 
@@ -648,55 +585,6 @@ namespace StocksData
             }
             
             m_GPUCombinationNum = 0;
-        }
-
-        internal static List<DataItem> GetDataItems()
-        {
-            List<DataItem> dataItems = typeof(DataItem).GetEnumValues().Cast<DataItem>().ToList();
-            dataItems.Remove(dataItems.First());
-            return dataItems;
-        }
-
-        private void DoPredictionCombination(ulong combination)
-        {
-            double[] correctPredictions = new double[DSSettings.PredictionItems.Count];
-
-            for (int i = 0; i < DSSettings.PredictionItems.Count; i++)
-            {
-                correctPredictions[i] = 0.0;
-            }
-
-            for (int i = 0; i < m_PredictedCollections[combination].Count; i++)
-            {
-                for (int predictionCombinationNum = 0; predictionCombinationNum < DSSettings.PredictionItems.Count; predictionCombinationNum++)
-                {
-                    if (m_PredictedCollections[combination][i] > DataSet.NumOfRows - DSSettings.PredictionItems[predictionCombinationNum].Range * 2)
-                    {
-                        break;
-                    }
-                    if (IsContainsPrediction(DSSettings.PredictionItems[predictionCombinationNum], m_PredictedCollections[combination][i], DSSettings.PredictionErrorRange, -DSSettings.PredictionErrorRange))
-                    {
-                        correctPredictions[predictionCombinationNum]++;
-                    }
-                }
-            }
-
-            bool containsRelevantResults = false;
-            List<double> predictionResults = new double[DSSettings.PredictionItems.Count].ToList();
-
-            for (int i = 0; i < DSSettings.PredictionItems.Count; i++)
-            {
-                predictionResults[i] = correctPredictions[i] / m_PredictedCollections[combination].Count;
-                if (predictionResults[i] > DSSettings.MinimumRelevantPredictionResult)
-                {
-                    containsRelevantResults = true;
-                }
-            }
-
-            if (containsRelevantResults)
-            {
-                Add(combination, predictionResults);
-            }
         }
 
         private string GetDataString(ulong combination)

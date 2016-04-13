@@ -17,7 +17,7 @@ namespace StocksGenius
 
         public CombinationItem PredictedChange { get; set; }
 
-        public float AverageCorrectness { get; set; }
+        public double AverageCorrectness { get; set; }
 
         public bool IsPositiveInvestment
         {

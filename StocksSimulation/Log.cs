@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace StocksSimulation
 {
-    static class Log
+    public static class Log
     {
         #region Enums
 

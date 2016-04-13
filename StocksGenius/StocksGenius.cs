@@ -1,6 +1,8 @@
 ﻿using StocksData;
+using StocksSimulation;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -57,6 +59,50 @@ namespace StocksGenius
                     Console.WriteLine("Analyzed prediction {0}, num of predictions {1}, average correctness {2}", analyze.PredictedChange.ToString(), analyze.NumOfPredictions, analyze.AverageCorrectness);
                 }
             }
+        }
+
+        public void BuildLatestPredictions()
+        {
+            m_StocksData.BuildDataLatestPredictions();
+        }
+
+        public void SimulateLatestPredictions()
+        {
+            string latestpredictionsDirectory = SGSettings.WorkingDirectory + DSSettings.LatestPredictionsDir;
+            string currentProject = SGSettings.WorkingDirectory.Split(Path.DirectorySeparatorChar).Last(x => !string.IsNullOrWhiteSpace(x));
+            string latestPredictionsFilePath = latestpredictionsDirectory + currentProject + DSSettings.LatestPredictionsSuffix + ".csv";
+            LatestSimulator simulator = new LatestSimulator(m_StocksData.DataSetPaths.Values.ToList(), latestPredictionsFilePath);
+            simulator.Simulate();
+        }
+
+        public void Simulate()
+        {
+            AnalyzerSimulator analyzerSimulator = new AnalyzerSimulator(m_StocksData.DataSetPaths.Values.Select(x => Path.GetFileName(x)).ToList(), SGSettings.WorkingDirectory);
+            //analyzerSimulator.TestAnalyzeResults(stocksDataPath + iForexTestAnalyzerFolder);
+            analyzerSimulator.Simulate();
+
+            //Console.Write(Log.ToString());
+            Log.SaveLogToFile(@"C:\Ekans\Stocks\Quandl\AnalyzeSimulator.log");
+
+            List<SimRecorder> recorders = new List<SimRecorder>();
+            foreach (string filePath in Directory.GetFiles(SGSettings.WorkingDirectory + SimSettings.SimulationRecordsDirectory))
+            {
+                recorders.Add(new SimRecorder(filePath));
+            }
+
+            using (StreamWriter writer = new StreamWriter(string.Format("{0}\\iForexSimSummary{1}.csv", SGSettings.WorkingDirectory, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
+            {
+                writer.WriteLine("EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, MaxLooseRatio, Final Profit");
+                foreach (SimRecorder recorder in recorders)
+                {
+                    writer.WriteLine("{0},{1},{2},{3},{4},{5}", recorder.EffectivePredictionResult, recorder.MinProfitRatio,
+                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.Last().AccountBalance);
+                }
+            }
+
+            Console.ReadKey();
+
+            return;
         }
 
         #endregion

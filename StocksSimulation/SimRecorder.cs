@@ -15,15 +15,15 @@ namespace StocksSimulation
 
         public DateTime Date { get; set; }
 
-        public float AccountBalance { get; set; }
+        public double AccountBalance { get; set; }
 
-        public float Profit { get; set; }
+        public double Profit { get; set; }
 
         #endregion
 
         #region Constructor
 
-        public SimRecord(int dataSetRow, DateTime date, float accountBalance, float profit)
+        public SimRecord(int dataSetRow, DateTime date, double accountBalance, double profit)
         {
             DataSetRow = dataSetRow;
             Date = date;
@@ -38,15 +38,15 @@ namespace StocksSimulation
     {
         #region Properties
 
-        public float EffectivePredictionResult { get; set; }
+        public double EffectivePredictionResult { get; set; }
 
-        public float MinProfitRatio { get; set; }
+        public double MinProfitRatio { get; set; }
 
         public int MaxInvestmentsPerStock { get; set; }
 
         public int MaxNumOfInvestments { get; set; }
 
-        public float MaxLooseRatio { get; set; }
+        public double MaxLooseRatio { get; set; }
 
         #endregion
 
@@ -56,16 +56,16 @@ namespace StocksSimulation
         {
             string fileName = Path.GetFileNameWithoutExtension(filePath);
             string[] fileProperties = fileName.Split('_');
-            EffectivePredictionResult = Convert.ToSingle(fileProperties[1]);
-            MinProfitRatio = Convert.ToSingle(fileProperties[2]);
+            EffectivePredictionResult = Convert.ToDouble(fileProperties[1]);
+            MinProfitRatio = Convert.ToDouble(fileProperties[2]);
             MaxInvestmentsPerStock = Convert.ToInt32(fileProperties[3]);
             MaxNumOfInvestments = Convert.ToInt32(fileProperties[4]);
-            MaxLooseRatio = Convert.ToSingle(fileProperties[5]);
+            MaxLooseRatio = Convert.ToDouble(fileProperties[5]);
 
             LoadFromFile(filePath);
         }
 
-        public SimRecorder(float effectivePredictionResult, float minProfitRatio, int maxInvestmentsPerStock, int maxNumOfInvestments, float maxLooseRatio)
+        public SimRecorder(double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, int maxNumOfInvestments, double maxLooseRatio)
         {
             EffectivePredictionResult = effectivePredictionResult;
             MinProfitRatio = minProfitRatio;
@@ -78,7 +78,7 @@ namespace StocksSimulation
 
         #region Interface
 
-        public void AddRecord(int dataSetRow, DateTime date, float accountBalance, float profit)
+        public void AddRecord(int dataSetRow, DateTime date, double accountBalance, double profit)
         {
             Add(new SimRecord(dataSetRow, date, accountBalance, profit));
         }
@@ -107,7 +107,7 @@ namespace StocksSimulation
                 {
                     string lineData = reader.ReadLine();
                     string[] data = lineData.Split(',');
-                    Add(new SimRecord(Convert.ToInt32(data[0]), Convert.ToDateTime(data[1]), Convert.ToSingle(data[2]), Convert.ToSingle(data[3])));
+                    Add(new SimRecord(Convert.ToInt32(data[0]), Convert.ToDateTime(data[1]), Convert.ToDouble(data[2]), Convert.ToDouble(data[3])));
                 }
             }
         }

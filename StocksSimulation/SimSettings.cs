@@ -8,8 +8,12 @@ namespace StocksSimulation
 {
     public class SimSettings
     {
-        public const float BuySellPenalty = 0.002F;
+        public const double BuySellPenalty = 0.002;
 
-        public const float InvestmentMoney = 1000;
+        public const double InvestmentMoney = 1000;
+
+        public const string TestDataSetsDirectory = "\\DataSetsTest\\";
+
+        public const string SimulationRecordsDirectory = "\\SimulationRecords\\";
     };
 }

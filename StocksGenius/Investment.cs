@@ -25,11 +25,11 @@ namespace StocksGenius
 
         public DateTime InvestmentDate { get; set; }
 
-        public float InvestedPrice { get; set; }
+        public double InvestedPrice { get; set; }
 
-        public float InvestedMoney { get; set; }
+        public double InvestedMoney { get; set; }
 
-        public float AccountBefore { get; set; }
+        public double AccountBefore { get; set; }
 
         public Analyze Analyze { get; set; }
 
@@ -37,17 +37,17 @@ namespace StocksGenius
 
         public BuySell InvestmentType { get; set; }
 
-        public float Profit { get; set; }
+        public double Profit { get; set; }
 
-        public float ReleasePrice { get; set; }
+        public double ReleasePrice { get; set; }
 
-        public float AccountAfter { get; set; }
+        public double AccountAfter { get; set; }
 
         #endregion
 
         #region Constructors
 
-        public Investment(Analyze analyze, DateTime date, float investmentPrice, float accountBefore, int ammount, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
+        public Investment(Analyze analyze, DateTime date, double investmentPrice, double accountBefore, int ammount, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
         {
             DataSet = analyze.DataSet;
             PredictedChange = analyze.PredictedChange;

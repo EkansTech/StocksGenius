@@ -8,10 +8,10 @@ namespace StocksGenius
 {
     public static class SGSettings
     {
-        public const float InvestmentMoney = 1000;
+        public const double InvestmentMoney = 1000;
 
         public const string WorkingDirectory = @"C:\Ekans\Stocks\iForex\";
 
-        public const float EffectivePredictionResult = 0.9F;
+        public const double EffectivePredictionResult = 0.9;
     }
 }

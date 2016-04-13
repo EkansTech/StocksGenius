@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace StocksData
 {
-    public class DataSet : List<float>
+    public class DataSet : List<double>
     {
         #region Enums
 
@@ -19,13 +19,6 @@ namespace StocksData
             Low,
             Close,
             Volume,
-            Ex_Dividend,
-            Split_Ratio,
-            AdjOpen,
-            AdjHigh,
-            AdjLow,
-            AdjClose,
-            AdjVolume,
 
             NumOfColumns,
         }
@@ -34,7 +27,7 @@ namespace StocksData
 
         #region Members
 
-        static List<string> m_ColumnNames = new List<string>() { "Date", "Open", "High", "Low", "Close", "Volume", "Ex-Dividend", "Split Ratio", "Adj. Open", "Adj. High", "Adj. Low", "Adj. Close", "Adj. Volume" };
+        static List<string> m_ColumnNames = new List<string>() { "Date", "Open", "High", "Low", "Close", "Volume" };
 
         #endregion
 
@@ -71,11 +64,12 @@ namespace StocksData
             {
                 case TestDataAction.None:
                     break;
-                case TestDataAction.RemoveTestData:
+                case TestDataAction.LoadOnlyPredictionData:
                     RemoveRange(0, DSSettings.TestRange * (int)DataColumns.NumOfColumns);
+                    RemoveRange(DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns, Count - DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns);
                     break;
-                case TestDataAction.LeaveOnlyTestData:
-                    RemoveRange(DSSettings.TestRange * 2 * (int)DataColumns.NumOfColumns, Count - DSSettings.TestRange * 2 * (int)DataColumns.NumOfColumns);
+                case TestDataAction.LoadOnlyTestData:
+                    RemoveRange(DSSettings.TestMinSize * (int)DataColumns.NumOfColumns, Count - DSSettings.TestMinSize * (int)DataColumns.NumOfColumns);
                     break;
             }
         }
@@ -83,7 +77,7 @@ namespace StocksData
         #endregion
 
         #region Interface
-        public List<float> GetDayData(int rowNumber)
+        public List<double> GetDayData(int rowNumber)
         {
             return GetRange(rowNumber * (int)DataColumns.NumOfColumns, (int)DataColumns.NumOfColumns);
         }
@@ -116,7 +110,7 @@ namespace StocksData
                 }
                 else
                 {
-                    Add(Convert.ToSingle(data[i]));
+                    Add(Convert.ToDouble(data[i]));
                 }
             }
         }
@@ -130,7 +124,7 @@ namespace StocksData
 
             if (m_ColumnNames.Count != columnNames.Length)
             {
-                throw new Exception(string.Format("Not compatible columns in the {0} data set", DataSetName));
+                //throw new Exception(string.Format("Not compatible columns in the {0} data set", DataSetName));
             }
 
             for (int i = 0; i < m_ColumnNames.Count; i++)

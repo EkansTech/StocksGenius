@@ -27,8 +27,8 @@ namespace StocksData
     public enum TestDataAction
     {
         None,
-        RemoveTestData,
-        LeaveOnlyTestData,
+        LoadOnlyPredictionData,
+        LoadOnlyTestData,
     }
 
     #endregion

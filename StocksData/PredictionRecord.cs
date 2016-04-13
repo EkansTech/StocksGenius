@@ -13,7 +13,7 @@ namespace StocksData
 
         public List<CombinationItem> Combination { get; set; }
 
-        public float PredictionCorrectness { get; set; }
+        public double PredictionCorrectness { get; set; }
 
         public CombinationItem PredictedChange { get; set; }
 

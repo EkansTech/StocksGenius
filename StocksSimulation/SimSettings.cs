@@ -12,7 +12,7 @@ namespace StocksSimulation
 
         public const double InvestmentMoney = 1000;
 
-        public const string TestDataSetsDirectory = "\\DataSetsTest\\";
+        public const string PriceDataSetsDirectory = "\\DataSets\\";
 
         public const string SimulationRecordsDirectory = "\\SimulationRecords\\";
     };

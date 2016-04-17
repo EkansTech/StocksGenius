@@ -7,6 +7,20 @@ using System.Threading.Tasks;
 
 namespace StocksSimulation
 {
+    public class AnalyzeComparer : IComparer<Analyze>
+    {
+        public int Compare(Analyze x, Analyze y)
+        {
+            if (x.PredictedChange.Range != y.PredictedChange.Range)
+            {
+                return x.PredictedChange.Range - y.PredictedChange.Range;
+            }
+            else
+            {
+                return y.NumOfPredictions - x.NumOfPredictions;
+            }
+        }
+    }
     public class Analyze
     {
         #region Properties
@@ -130,16 +144,10 @@ namespace StocksSimulation
                 List<CombinationItem> badPredictions = new List<CombinationItem>();
                 foreach (CombinationItem combinationItem in this[dataSet].Keys)
                 {
-                    if (combinationItem.Is(DataItem.CloseOpenDif, 1) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.NegativeCloseOpenDif, 1)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.NegativeCloseOpenDif, 1)); }
-                    else if (combinationItem.Is(DataItem.OpenPrevCloseDif, 1) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.NegativeOpenPrevCloseDif, 1)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.NegativeOpenPrevCloseDif, 1)); }
-                    else if (combinationItem.Is(DataItem.OpenChange, 3) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.NegativeOpenChange, 5)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.NegativeOpenChange, 3)); }
-                    else if (combinationItem.Is(DataItem.OpenChange, 6) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.NegativeOpenChange, 10)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.NegativeOpenChange, 6)); }
-                    else if (combinationItem.Is(DataItem.OpenChange, 9) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.NegativeOpenChange, 20)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.NegativeOpenChange, 9)); }
+                    if (this[dataSet].ContainsKey(CombinationItem.Item(DSSettings.OppositeDataItems[combinationItem.DataItem], combinationItem.Range)))
+                    {
+                        badPredictions.Add(combinationItem);
+                    }
                 }
 
                 foreach (CombinationItem combinationItem in badPredictions)

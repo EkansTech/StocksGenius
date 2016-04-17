@@ -190,7 +190,7 @@ namespace StocksData
                 Console.WriteLine("Completed {0}%", (((double)datasetNumber) / (double)iForexFiles.Count * 100.0).ToString("0.00"));
 
                 
-                DataSet dataSet = new DataSet(dataSetsPath, TestDataAction.LoadOnlyPredictionData);
+                DataSet dataSet = new DataSet(dataSetsPath);
                 DateTime timePoint = DateTime.Now;
                 DataPredictions dataPredictions = new DataPredictions(dataSet, WorkingDirectory + iForexPredictionsFolder,true);
                 loadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;

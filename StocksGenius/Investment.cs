@@ -13,6 +13,14 @@ namespace StocksGenius
         Sell
     }
 
+    public enum ReleaseReason
+    {
+        EndOfPeriod,
+        OppositePrediction,
+        GoodProfit,
+        BadLoose,
+    }
+
     public class Investment
     {
         #region Properties
@@ -42,6 +50,8 @@ namespace StocksGenius
         public double ReleasePrice { get; set; }
 
         public double AccountAfter { get; set; }
+
+        public ReleaseReason ReleaseReason { get; set; }
 
         #endregion
 

@@ -31,8 +31,8 @@ namespace StocksData
         private DeviceMemory<byte> m_ChangesRangesDM;
         private DeviceMemory<int> m_PredictionsDataItemsDM;
         private DeviceMemory<byte> m_PredictionsRangesDM;
-        private DeviceMemory<byte> m_PredictedChangesDM;
-        private DeviceMemory<byte> m_ActualChangesDM;
+        private DeviceMemory<byte> m_ChangesDM;
+        private DeviceMemory<byte> m_PredictionsDM;
         private DeviceMemory<double> m_PredictionResultsDM;
 
         #endregion
@@ -52,8 +52,8 @@ namespace StocksData
             m_ChangesRangesDM = GPUWorker.Malloc(changesRanges);
             m_PredictionsDataItemsDM = GPUWorker.Malloc(predictionDataItems);
             m_PredictionsRangesDM = GPUWorker.Malloc(predictionRanges);
-            m_PredictedChangesDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_ChangesNum]);
-            m_ActualChangesDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_PredictionsNum]);
+            m_ChangesDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_ChangesNum]);
+            m_PredictionsDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_PredictionsNum]);
 
 
             // Initialize
@@ -61,8 +61,8 @@ namespace StocksData
             var grid = new dim3(m_DataSetNumOfRows / block.x + 1);
             var lp = new LaunchParam(grid, block);
 
-            GPULaunch(BuildPredictedChanges, lp, m_DataSetDM.Ptr, m_PredictedChangesDM.Ptr, m_DataItemsMapDM.Ptr, m_ChangesDataItemsDM.Ptr, m_ChangesRangesDM.Ptr); 
-            GPULaunch(BuildActualChanges, lp, m_DataSetDM.Ptr, m_ActualChangesDM.Ptr, m_DataItemsMapDM.Ptr, m_PredictionsDataItemsDM.Ptr, m_PredictionsRangesDM.Ptr);
+            GPULaunch(BuildChanges, lp, m_DataSetDM.Ptr, m_ChangesDM.Ptr, m_DataItemsMapDM.Ptr, m_ChangesDataItemsDM.Ptr, m_ChangesRangesDM.Ptr); 
+            GPULaunch(BuildPredictions, lp, m_DataSetDM.Ptr, m_PredictionsDM.Ptr, m_DataItemsMapDM.Ptr, m_PredictionsDataItemsDM.Ptr, m_PredictionsRangesDM.Ptr);
 
             //Free no more needed memory
             m_DataItemsMapDM.Dispose();
@@ -87,19 +87,20 @@ namespace StocksData
         {
             m_PredictionsDataItemsDM.Dispose();
             m_PredictionsRangesDM.Dispose();
-            m_PredictedChangesDM.Dispose();
-            m_ActualChangesDM.Dispose();
+            m_ChangesDM.Dispose();
+            m_PredictionsDM.Dispose();
             m_PredictionResultsDM.Dispose();
 
             m_PredictionsDataItemsDM = null;
             m_PredictionsRangesDM = null;
-            m_PredictedChangesDM = null;
-            m_ActualChangesDM = null;
+            m_ChangesDM = null;
+            m_PredictionsDM = null;
             m_PredictionResultsDM = null;
         }
 
         public double[] PredictCombinations(byte[] combinations, byte combinationSize, int combinationsNum, int minimumChangesForPrediction, double minimumRelevantPredictionResult)
         {
+            //using (var dPredictionsSum = GPUWorker.Malloc<short>(combinationsNum * m_PredictionsNum))
             using (var dCombinations = GPUWorker.Malloc(combinations))
             {
                 int numOfThreadsInBlock = 1024;
@@ -109,8 +110,8 @@ namespace StocksData
                 var block = new dim3(blockX);//, blockY);
                 var grid = new dim3(gridX);
                 var lp = new LaunchParam(grid, block);
-                GPULaunch(PredictCombinations, lp, dCombinations.Ptr, combinationSize, m_PredictionResultsDM.Ptr, m_PredictedChangesDM.Ptr,
-                    m_ActualChangesDM.Ptr, m_PredictionsRangesDM.Ptr, combinationsNum, minimumChangesForPrediction, minimumRelevantPredictionResult);
+                GPULaunch(PredictCombinations, lp, dCombinations.Ptr, combinationSize, m_PredictionResultsDM.Ptr, m_ChangesDM.Ptr, m_PredictionsDM.Ptr,
+                    m_PredictionsRangesDM.Ptr, combinationsNum, minimumChangesForPrediction, minimumRelevantPredictionResult);//, dPredictionsSum.Ptr);
                 return m_PredictionResultsDM.Gather();
             }
         }
@@ -126,8 +127,8 @@ namespace StocksData
                 var block = new dim3(blockX, blockY);
                 var grid = new dim3(gridX);
                 var lp = new LaunchParam(grid, block);
-                GPULaunch(PredictCombinationsTest, lp, dCombinations.Ptr, combinationSize, m_PredictionResultsDM.Ptr, m_PredictedChangesDM.Ptr, 
-                    m_ActualChangesDM.Ptr, m_PredictionsRangesDM.Ptr, combinationsNum, minimumChangesForPrediction, numOfRows);
+                GPULaunch(PredictCombinationsTest, lp, dCombinations.Ptr, combinationSize, m_PredictionResultsDM.Ptr, m_ChangesDM.Ptr, 
+                    m_PredictionsDM.Ptr, m_PredictionsRangesDM.Ptr, combinationsNum, minimumChangesForPrediction, numOfRows);
                 return m_PredictionResultsDM.Gather();
             }
         }
@@ -135,34 +136,34 @@ namespace StocksData
 
         #endregion
 
-        #region Private Methods
+        #region Kernel Methods
 
         [Kernel]
-        public void BuildPredictedChanges(deviceptr<double> dataSet, deviceptr<byte> predictedChanges, deviceptr<int> dataItemsMap, deviceptr<int> predictionsDataItems, deviceptr<byte> predictionsRanges)
+        public void BuildChanges(deviceptr<double> dataSet, deviceptr<byte> changes, deviceptr<int> dataItemsMap, deviceptr<int> changesDataItems, deviceptr<byte> changesRanges)
         {
             var dataRow = blockIdx.x * blockDim.x + threadIdx.x;
-            deviceptr<byte> currentPredictedChanges = predictedChanges.Ptr(dataRow * m_ChangesNum);
+            deviceptr<byte> currentChanges = changes.Ptr(dataRow * m_ChangesNum);
 
-            for (int predictionNum = 0; predictionNum < m_ChangesNum; predictionNum++)
+            for (int changeNum = 0; changeNum < m_ChangesNum; changeNum++)
             {
-                int columnFrom = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 0];
-                int columnOf = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 1];
-                int isDifFromPrevDate = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 2];
-                int isBigger = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 3];
-                int range = predictionsRanges[predictionNum];
+                int columnFrom = dataItemsMap[changesDataItems[changeNum] * 4 + 0];
+                int columnOf = dataItemsMap[changesDataItems[changeNum] * 4 + 1];
+                int isDifFromPrevDate = dataItemsMap[changesDataItems[changeNum] * 4 + 2];
+                int isBigger = dataItemsMap[changesDataItems[changeNum] * 4 + 3];
+                int range = changesRanges[changeNum];
                 deviceptr<double> currentDataSet = dataSet.Ptr((dataRow + range) * m_DataSetWidth);
 
-                currentPredictedChanges[predictionNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
-                        (byte)0 : currentPredictedChanges[predictionNum] = IsPrediction(currentDataSet, range, columnFrom, columnOf, isDifFromPrevDate, isBigger, -m_ErrorRange, m_ErrorRange);
+                currentChanges[changeNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
+                        (byte)0 : currentChanges[changeNum] = IsPrediction(currentDataSet, range, columnFrom, columnOf, isDifFromPrevDate, isBigger, m_ErrorRange, -m_ErrorRange);
 
             }
         }
 
         [Kernel]
-        public void BuildActualChanges(deviceptr<double> dataSet, deviceptr<byte> actualChanges, deviceptr<int> dataItemsMap, deviceptr<int> predictionsDataItems, deviceptr<byte> predictionsRanges)
+        public void BuildPredictions(deviceptr<double> dataSet, deviceptr<byte> predictions, deviceptr<int> dataItemsMap, deviceptr<int> predictionsDataItems, deviceptr<byte> predictionsRanges)
         {
             var dataRow = blockIdx.x * blockDim.x + threadIdx.x;
-            deviceptr<byte> currentActualChanges = actualChanges.Ptr(dataRow * m_PredictionsNum);
+            deviceptr<byte> currentPredictions = predictions.Ptr(dataRow * m_PredictionsNum);
             deviceptr<double> currentDataSet = dataSet.Ptr(dataRow * m_DataSetWidth);
 
             for (int predictionNum = 0; predictionNum < m_PredictionsNum; predictionNum++)
@@ -173,48 +174,49 @@ namespace StocksData
                 int isBigger = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 3];
                 int range = predictionsRanges[predictionNum];
 
-                currentActualChanges[predictionNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
+                currentPredictions[predictionNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
                     (byte)0 : IsPrediction(currentDataSet, range, columnFrom, columnOf, isDifFromPrevDate, isBigger, m_ErrorRange, -m_ErrorRange);
             }
         }
 
         [Kernel]
-        public void PredictCombinations(deviceptr<byte> combinationItems, byte combinationSize, deviceptr<double> predictionResults, deviceptr<byte> predictedChanges,
-            deviceptr<byte> actualChanges, deviceptr<byte> predictionRanges, int combinationsNum, int minimumChangesForPrediction, double minimumRelevantPredictionResult)
+        public void PredictCombinations(deviceptr<byte> combinationItems, byte combinationSize, deviceptr<double> predictionResults, deviceptr<byte> changes, deviceptr<byte> predictions, 
+            deviceptr<byte> predictionRanges, int combinationsNum, int minimumChangesForPrediction, double minimumRelevantPredictionResult)//, deviceptr<short> predictionsSum)
         {
             var combinationNum = blockIdx.x * blockDim.x + threadIdx.x;
 
             if (combinationNum < combinationsNum)
             {
                 deviceptr<byte> threadCombinationItems = combinationItems.Ptr(combinationNum * combinationSize);
-                var threadActualPredictedChangeSum = __local__.Array<short>(m_PredictionsNum);
+                //deviceptr<short> threadPredictionsSum = predictionsSum.Ptr(combinationNum * m_PredictionsNum);
+                var threadPredictionsSum = __local__.Array<short>(m_PredictionsNum);
 
                 for (byte predictionNum = 0; predictionNum < m_PredictionsNum; predictionNum++)
                 {
-                    threadActualPredictedChangeSum[predictionNum] = 0;
+                    threadPredictionsSum[predictionNum] = 0;
                 }
 
-                short predictedChangesSum = 0;
+                short changesSum = 0;
                 for (int rowNum = 0; rowNum < m_DataSetNumOfRows; rowNum++)
                 {
-                    short predictedChange = 1;
+                    short change = 1;
                     for (byte itemNum = 0; itemNum < combinationSize; itemNum++)
                     {
-                        predictedChange *= predictedChanges[rowNum * m_ChangesNum + threadCombinationItems[itemNum]];
+                        change *= changes[rowNum * m_ChangesNum + threadCombinationItems[itemNum]];
                     }
 
-                    predictedChangesSum += predictedChange;
+                    changesSum += change;
                     for (byte predictionNum = 0; predictionNum < m_PredictionsNum; predictionNum++)
                     {
-                        threadActualPredictedChangeSum[predictionNum] += (short)(predictedChange * actualChanges[rowNum * m_PredictionsNum + predictionNum]);
+                        threadPredictionsSum[predictionNum] += (short)(change * predictions[rowNum * m_PredictionsNum + predictionNum]);
                     }
                 }
 
                 for (byte predictionNum = 0; predictionNum < m_PredictionsNum; predictionNum++)
                 {
-                    bool isRelevant = (predictedChangesSum > minimumChangesForPrediction)
-                        && (double)threadActualPredictedChangeSum[predictionNum] / minimumChangesForPrediction >= minimumRelevantPredictionResult;
-                    double predictionResult = isRelevant ? (double)threadActualPredictedChangeSum[predictionNum] / (double)predictedChangesSum : 0.0;
+                    bool isRelevant = (changesSum > minimumChangesForPrediction)
+                        && (double)threadPredictionsSum[predictionNum] / minimumChangesForPrediction >= minimumRelevantPredictionResult;
+                    double predictionResult = isRelevant ? (double)threadPredictionsSum[predictionNum] / (double)changesSum : 0.0;
                     predictionResults[combinationNum * m_PredictionsNum + predictionNum] = predictionResult;
                 }
             }
@@ -446,7 +448,7 @@ namespace StocksData
 
         #endregion
 
-        #region Private Methods
+        #region Kernel Methods
 
         [Kernel]
         public void BuildChanges(int dataSetNum, int dataSetSize, int dataSetChangesSize, deviceptr<double> dataSet, deviceptr<byte> changes, deviceptr<int> dataItemsMap, 
@@ -464,7 +466,7 @@ namespace StocksData
                 int range = changesRanges[changeNum];
                 deviceptr<double> currentDataSet = dataSet.Ptr((dataSetNum * dataSetSize + dataRow + range) * m_DataSetWidth);
 
-                currentChanges[changeNum] = IsChange(currentDataSet, range, columnFrom, columnOf, isDifFromPrevDate, isBigger, -m_ErrorRange, m_ErrorRange);
+                currentChanges[changeNum] = IsChange(currentDataSet, range, columnFrom, columnOf, isDifFromPrevDate, isBigger, m_ErrorRange, -m_ErrorRange);
 
             }
         }

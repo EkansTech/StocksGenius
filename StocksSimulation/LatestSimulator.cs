@@ -24,6 +24,9 @@ namespace StocksSimulation
         #region Properties
 
         public Dictionary<string, DataSet> DataSets { get; set; }
+
+        public Dictionary<string, DataSet> PriceDataSets { get; set; }
+
         public LatestPredictions LatestPredictions { get; set; }
 
         public double AccountBallance { get; set; }
@@ -55,8 +58,11 @@ namespace StocksSimulation
             {
                 DataSet dataSet = new DataSet(stockFile, TestDataAction.LoadOnlyTestData);
                 DataSets.Add(dataSet.DataSetName, dataSet);
-            }
 
+                DataSet priceDataSet = new DataSet(stockFile.Replace(DSSettings.DataSetsDir, SimSettings.PriceDataSetsDirectory), TestDataAction.LoadOnlyTestData);
+                DataSets.Add(priceDataSet.DataSetName, priceDataSet);
+            }
+            
             LatestPredictions = new LatestPredictions(DataSets.Values.ToList(), latestPredictionsFilePath);
 
             m_PredictionRecords = LatestPredictions.GetBestPredictions(LatestSimulator.EffectivePredictionResult).OrderByDescending(x => x.PredictionCorrectness).ToList();
@@ -97,7 +103,7 @@ namespace StocksSimulation
                                 AccountBallance = 0.0;
                                 TotalProfit = 0.0;
 
-                                SimRecorder simRecorder = new SimRecorder(EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, MaxLooseRatio);
+                                SimRecorder simRecorder = new SimRecorder(EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, MaxLooseRatio, 12);
                                 for (int dataSetRow = DSSettings.TestRange; dataSetRow >= 0; dataSetRow--)
                                 {
                                     m_SimulationDate = new DateTime((long)DataSets.Values.First().GetDayData(dataSetRow)[0]);
@@ -194,7 +200,7 @@ namespace StocksSimulation
             {
                 return;
             }
-            Investment investment = new Investment(analyze, day, AccountBallance);
+            Investment investment = new Investment(PriceDataSets[analyze.DataSet.DataSetName], analyze, day, AccountBallance);
             AccountBallance = investment.UpdateAccountOnInvestment(day, AccountBallance);
             if (AccountBallance > m_MaxAccountBalance)
             {

@@ -56,14 +56,6 @@ namespace StocksData
             set { m_PredictionDataSetName = value; }
         }
 
-        public int MinimumChangesForPrediction
-        {
-            get
-            {
-                return (DataSet.NumOfRows * 0.01 < 100) ? 100 : (int)(DataSet.NumOfRows * 0.01);
-            }
-        }
-
         public DataSet DataSet { get; private set; }
         public double GPULoadTime { get; internal set; }
 
@@ -267,7 +259,7 @@ namespace StocksData
                 if (combinationPart == combinationSize - 1)
                 {
                     List<int> predictions = CombineLists(m_PredictedCollections[combination], m_PredictedCollections[DSSettings.ChangeItems[i].ToULong()]);
-                    if (predictions.Count >= MinimumChangesForPrediction)
+                    if (predictions.Count >= DSSettings.MinimumChangesForPrediction)
                     {
                         m_PredictedCollections.Add(combination | DSSettings.ChangeItems[i].ToULong(), predictions);
                     }
@@ -351,13 +343,13 @@ namespace StocksData
 
                 for (int dataRow = 0; dataRow < DataSet.NumOfRows - combinationItem.Range * 3; dataRow++)
                 {
-                    if (IsContainsPrediction(combinationItem, dataRow + combinationItem.Range, -DSSettings.PredictionErrorRange, DSSettings.PredictionErrorRange))
+                    if (IsContainsPrediction(combinationItem, dataRow + combinationItem.Range, DSSettings.PredictionErrorRange, -DSSettings.PredictionErrorRange))
                     {
                         combinationPredictions.Add(dataRow);
                     }
                 }
 
-                if (combinationPredictions.Count >= MinimumChangesForPrediction)
+                if (combinationPredictions.Count >= DSSettings.MinimumChangesForPrediction)
                 {
                     m_PredictedCollections.Add(combinationItemULong, combinationPredictions);
                 }
@@ -546,6 +538,10 @@ namespace StocksData
 
             for (byte i = startPosition; i < DSSettings.ChangeItems.Count - (combinationSize - combinationPart - 1); i++)
             {
+                if (i % 2 == 1 && currentCombinationItems.Contains((byte)(i - 1)))
+                {
+                    continue;
+                }
                 combination |= DSSettings.ChangeItems[i].ToULong();
                 currentCombinationItems.Add(i);
 
@@ -602,7 +598,7 @@ namespace StocksData
             m_GPUCyclesPerSize++;
             DateTime timePoint = DateTime.Now;
             double[] predictionResultsArray = m_GPUPredictions.PredictCombinations(m_GPUCombinationsItems, 
-                combinationSize, m_GPUCombinationNum, MinimumChangesForPrediction, DSSettings.MinimumRelevantPredictionResult);
+                combinationSize, m_GPUCombinationNum, DSSettings.MinimumChangesForPrediction, DSSettings.MinimumRelevantPredictionResult);
             GPULoadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
             Console.WriteLine("{0} seconds for {1} combinations", (DateTime.Now - timePoint).TotalMilliseconds / 1000, m_GPUCombinationNum);
 

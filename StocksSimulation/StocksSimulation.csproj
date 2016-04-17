@@ -65,6 +65,7 @@
     <Compile Include="AnalyzeConclusions.cs" />
     <Compile Include="AnalyzerSimulator.cs" />
     <Compile Include="Investment.cs" />
+    <Compile Include="InvestmentAnalyzis.cs" />
     <Compile Include="LatestSimulator.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="Program.cs" />

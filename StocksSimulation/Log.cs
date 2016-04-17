@@ -95,7 +95,13 @@ namespace StocksSimulation
         {
             using (StreamWriter writer = new StreamWriter(filePath))
             {
-                writer.Write(ToString(logLevel));
+                foreach (LogMessage logMessage in m_LogMessages)
+                {
+                    if ((int)logLevel <= (int)LogLevelType.Detailed)
+                    {
+                        writer.WriteLine(logMessage.String);
+                    }
+                }
             }
         }
 

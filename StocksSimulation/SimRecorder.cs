@@ -48,6 +48,8 @@ namespace StocksSimulation
 
         public double MaxLooseRatio { get; set; }
 
+        public byte MaxPredictedRange { get; set; }
+
         #endregion
 
         #region Constructors
@@ -61,17 +63,19 @@ namespace StocksSimulation
             MaxInvestmentsPerStock = Convert.ToInt32(fileProperties[3]);
             MaxNumOfInvestments = Convert.ToInt32(fileProperties[4]);
             MaxLooseRatio = Convert.ToDouble(fileProperties[5]);
+            MaxPredictedRange = Convert.ToByte(fileProperties[6]);
 
             LoadFromFile(filePath);
         }
 
-        public SimRecorder(double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, int maxNumOfInvestments, double maxLooseRatio)
+        public SimRecorder(double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, int maxNumOfInvestments, double maxLooseRatio, byte maxPredictedRange)
         {
             EffectivePredictionResult = effectivePredictionResult;
             MinProfitRatio = minProfitRatio;
             MaxInvestmentsPerStock = maxInvestmentsPerStock;
             MaxNumOfInvestments = maxNumOfInvestments;
             MaxLooseRatio = maxLooseRatio;
+            MaxPredictedRange = maxPredictedRange;
         }
 
         #endregion
@@ -85,7 +89,8 @@ namespace StocksSimulation
 
         public void SaveToFile(string name, string folderPath)
         {
-            string filePath = string.Format("{0}\\{1}_{2}_{3}_{4}_{5}_{6}_{7}.csv", folderPath, name, EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, MaxLooseRatio, DateTime.Now.ToString().Replace(':', '_').Replace('/','_'));
+            string filePath = string.Format("{0}\\{1}_{2}_{3}_{4}_{5}_{6}_{7}_{8}.csv", folderPath, name, EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, 
+                MaxNumOfInvestments, MaxLooseRatio, MaxPredictedRange, DateTime.Now.ToString().Replace(':', '_').Replace('/','_'));
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {

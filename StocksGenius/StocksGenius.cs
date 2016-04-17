@@ -54,7 +54,7 @@ namespace StocksGenius
             foreach (DataSetAnalyzes dataSetAnalyze in dailyAnalyzes.Values)
             {
                 Console.WriteLine("DataSet {0}:", dataSetAnalyze.DataSet.DataSetName);
-                foreach (Analyze analyze in dataSetAnalyze.Values.OrderByDescending(x => x.AverageCorrectness))
+                foreach (Analyze analyze in dataSetAnalyze.Values.OrderBy(x => x.PredictedChange.Range))
                 {
                     Console.WriteLine("Analyzed prediction {0}, num of predictions {1}, average correctness {2}", analyze.PredictedChange.ToString(), analyze.NumOfPredictions, analyze.AverageCorrectness);
                 }
@@ -79,10 +79,11 @@ namespace StocksGenius
         {
             AnalyzerSimulator analyzerSimulator = new AnalyzerSimulator(m_StocksData.DataSetPaths.Values.Select(x => Path.GetFileName(x)).ToList(), SGSettings.WorkingDirectory);
             //analyzerSimulator.TestAnalyzeResults(stocksDataPath + iForexTestAnalyzerFolder);
+            //Log.ConnectToConsole = false;
             analyzerSimulator.Simulate();
 
             //Console.Write(Log.ToString());
-            Log.SaveLogToFile(@"C:\Ekans\Stocks\Quandl\AnalyzeSimulator.log");
+            Log.SaveLogToFile(SGSettings.WorkingDirectory + "AnalyzeSimulator.log");
 
             List<SimRecorder> recorders = new List<SimRecorder>();
             foreach (string filePath in Directory.GetFiles(SGSettings.WorkingDirectory + SimSettings.SimulationRecordsDirectory))
@@ -92,15 +93,13 @@ namespace StocksGenius
 
             using (StreamWriter writer = new StreamWriter(string.Format("{0}\\iForexSimSummary{1}.csv", SGSettings.WorkingDirectory, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
             {
-                writer.WriteLine("EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, MaxLooseRatio, Final Profit");
+                writer.WriteLine("MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio,Final Profit");
                 foreach (SimRecorder recorder in recorders)
                 {
-                    writer.WriteLine("{0},{1},{2},{3},{4},{5}", recorder.EffectivePredictionResult, recorder.MinProfitRatio,
-                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.Last().AccountBalance);
+                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6}", recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio, recorder.MaxInvestmentsPerStock, 
+                        recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.Last().AccountBalance);
                 }
             }
-
-            Console.ReadKey();
 
             return;
         }

@@ -148,13 +148,14 @@ namespace StocksData
             {
                 int columnFrom = dataItemsMap[changesDataItems[changeNum] * 4 + 0];
                 int columnOf = dataItemsMap[changesDataItems[changeNum] * 4 + 1];
-                int isDifFromPrevDate = dataItemsMap[changesDataItems[changeNum] * 4 + 2];
-                int isBigger = dataItemsMap[changesDataItems[changeNum] * 4 + 3];
+                int fromRowOffset = dataItemsMap[changesDataItems[changeNum] * 4 + 2];
+                int ofRowOffset = dataItemsMap[changesDataItems[changeNum] * 4 + 3];
+                int isBigger = dataItemsMap[changesDataItems[changeNum] * 4 + 4];
                 int range = changesRanges[changeNum];
                 deviceptr<double> currentDataSet = dataSet.Ptr((dataRow + range) * m_DataSetWidth);
 
                 currentChanges[changeNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
-                        (byte)0 : currentChanges[changeNum] = IsPrediction(currentDataSet, range, columnFrom, columnOf, isDifFromPrevDate, isBigger, m_ErrorRange, -m_ErrorRange);
+                        (byte)0 : currentChanges[changeNum] = IsPrediction(currentDataSet, range, columnFrom, columnOf, fromRowOffset, ofRowOffset, isBigger, m_ErrorRange, -m_ErrorRange);
 
             }
         }
@@ -170,12 +171,13 @@ namespace StocksData
             {
                 int columnFrom = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 0];
                 int columnOf = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 1];
-                int isDifFromPrevDate = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 2];
-                int isBigger = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 3];
+                int fromRowOffset = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 2];
+                int ofRowOffset = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 3];
+                int isBigger = dataItemsMap[predictionsDataItems[predictionNum] * 4 + 4];
                 int range = predictionsRanges[predictionNum];
 
                 currentPredictions[predictionNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
-                    (byte)0 : IsPrediction(currentDataSet, range, columnFrom, columnOf, isDifFromPrevDate, isBigger, m_ErrorRange, -m_ErrorRange);
+                    (byte)0 : IsPrediction(currentDataSet, range, columnFrom, columnOf, fromRowOffset, ofRowOffset, isBigger, m_ErrorRange, -m_ErrorRange);
             }
         }
 
@@ -251,75 +253,99 @@ namespace StocksData
             }
         }
 
-        private byte IsPrediction(deviceptr<double> dataSet, int range, int dataColumFrom, int dataColumOf, int isDifFromPrevDate,  int isBigger, double biggerErrorBorder, double smallerErrorBorder)
+        private byte IsPrediction(deviceptr<double> dataSet, int range, int dataColumFrom, int dataColumOf, 
+            int fromRowOffset, int ofRowOffset, int isBigger, double biggerErrorBorder, double smallerErrorBorder)
         {
-            int ofRow = isDifFromPrevDate * range;
-            double sumOf = 0;
-            double sumFrom = 0;
-            for (int i = 0; i < range; i++)
-            {
-                sumOf += dataSet[(ofRow) * m_DataSetWidth + dataColumOf];
-                sumFrom += dataSet[dataColumFrom];
-            }
+            int ofRow = ofRowOffset * range;
+            int fromRow = fromRowOffset * range;
+            double sumOf = dataSet[ofRow * m_DataSetWidth + dataColumOf];
+            double sumFrom = dataSet[fromRow * m_DataSetWidth + dataColumFrom];
+            //for (int i = 0; i < range; i++)
+            //{
+            //    sumOf += dataSet[(ofRow + i) * m_DataSetWidth + dataColumOf];
+            //    sumFrom += dataSet[(fromRow + i) * m_DataSetWidth + dataColumFrom];
+            //}
 
             return (byte)((isBigger == 1) ?
-                (((sumFrom - sumOf) / sumOf / range) > biggerErrorBorder) ? 1 : 0
+                //(((sumFrom - sumOf) / sumOf / range) > biggerErrorBorder) ? 1 : 0
+                //:
+                //(((sumFrom - sumOf) / sumOf / range) < smallerErrorBorder) ? 1 : 0);
+                (((sumFrom - sumOf) / sumOf) > biggerErrorBorder) ? 1 : 0
                 :
-                (((sumFrom - sumOf) / sumOf / range) < smallerErrorBorder) ? 1 : 0);
+                (((sumFrom - sumOf) / sumOf) < smallerErrorBorder) ? 1 : 0);
         }
 
         private int[] GetDataItemsMap()
         {
-            int mapLength = 4;
+            int mapLength = 5;
             int[] dataItemsMap = new int[DSSettings.DataItems.Count * mapLength];
 
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 0] = (int)DataSet.DataColumns.Open;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 1] = (int)DataSet.DataColumns.Open;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 2] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 2] = 0;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenChange) * mapLength + 4] = 1;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 0] = (int)DataSet.DataColumns.Close;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 1] = (int)DataSet.DataColumns.Close;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 2] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 2] = 0;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseChange) * mapLength + 4] = 1;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 0] = (int)DataSet.DataColumns.Volume;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 1] = (int)DataSet.DataColumns.Volume;            
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 2] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 1] = (int)DataSet.DataColumns.Volume;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 2] = 0;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.VolumeChange) * mapLength + 4] = 1;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 0] = (int)DataSet.DataColumns.Close;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 1] = (int)DataSet.DataColumns.Open;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 2] = 0;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 3] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.CloseOpenDif) * mapLength + 4] = 1;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 0] = (int)DataSet.DataColumns.Open;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 1] = (int)DataSet.DataColumns.Close;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 2] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 2] = 0;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.OpenPrevCloseDif) * mapLength + 4] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.PrevCloseOpenDif) * mapLength + 0] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.PrevCloseOpenDif) * mapLength + 1] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.PrevCloseOpenDif) * mapLength + 2] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.PrevCloseOpenDif) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.PrevCloseOpenDif) * mapLength + 4] = 1;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 0] = (int)DataSet.DataColumns.Open;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 1] = (int)DataSet.DataColumns.Open;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 2] = 1;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 3] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 2] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenChange) * mapLength + 4] = 1;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 0] = (int)DataSet.DataColumns.Close;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 1] = (int)DataSet.DataColumns.Close;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 2] = 1;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 3] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 2] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseChange) * mapLength + 4] = 1;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 0] = (int)DataSet.DataColumns.Volume;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 1] = (int)DataSet.DataColumns.Volume;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 2] = 1;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 3] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 2] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeVolumeChange) * mapLength + 4] = 1;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseOpenDif) * mapLength + 0] = (int)DataSet.DataColumns.Close;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseOpenDif) * mapLength + 1] = (int)DataSet.DataColumns.Open;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseOpenDif) * mapLength + 2] = 0;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseOpenDif) * mapLength + 3] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeCloseOpenDif) * mapLength + 4] = 1;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 0] = (int)DataSet.DataColumns.Open;
             dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 1] = (int)DataSet.DataColumns.Close;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 2] = 1;
-            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 3] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 2] = 0;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativeOpenPrevCloseDif) * mapLength + 4] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativePrevCloseOpenDif) * mapLength + 0] = (int)DataSet.DataColumns.Close;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativePrevCloseOpenDif) * mapLength + 1] = (int)DataSet.DataColumns.Open;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativePrevCloseOpenDif) * mapLength + 2] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativePrevCloseOpenDif) * mapLength + 3] = 1;
+            dataItemsMap[DSSettings.DataItems.IndexOf(DataItem.NegativePrevCloseOpenDif) * mapLength + 4] = 1;
 
             return dataItemsMap;
         }
 
         #endregion
     }
-
 
     internal class GPULatestPredictions : ILGPUModule
     {

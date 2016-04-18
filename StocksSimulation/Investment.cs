@@ -56,6 +56,10 @@ namespace StocksSimulation
 
         public ReleaseReason ReleaseReason { get; set; }
 
+        public double ReleaseTotalProfit { get; set; }
+
+        public bool OnLooseSaving { get; set; }
+
         #endregion
 
         #region Constructors
@@ -72,9 +76,10 @@ namespace StocksSimulation
             AccountBefore = accountBefore;
             Analyze = analyze;
             IsEndOfInvestment = false;
-            InvestmentType = (analyze.IsPositiveInvestment) ? BuySell.Buy : BuySell.Sell;
+            InvestmentType = (analyze.IsPositiveInvestment) ? BuySell.Buy : BuySell.Sell; // Test opposite decision
             InvestedMoney = GetInvestmentMoney(Ammount, InvestedPrice, InvestmentType);
             ReleaseReason = ReleaseReason.NoReason;
+            OnLooseSaving = false;
         }
 
         #endregion
@@ -104,6 +109,7 @@ namespace StocksSimulation
                     || (InvestmentType == BuySell.Sell && dataSetAnalyzes.First().IsNegativeInvestment))
                 {
                     CountDay = day;
+                    PredictedChange = dataSetAnalyzes.First().PredictedChange;
                 }
             }
             else if (daysLeft == 0)
@@ -157,11 +163,14 @@ namespace StocksSimulation
             return (InvestmentType == BuySell.Buy) ? GetReleasePrice(day) - InvestedMoney : InvestedMoney - GetReleasePrice(day); ;
         }
 
-        public void Release(int day)
+        public double Release(int day, double totalProfit)
         {
             Profit = GetProfit(day);
-            Profit = GetProfit(day);
+            totalProfit += Profit;
+            ReleaseTotalProfit = totalProfit;
             ReleaseDay = day;
+
+            return totalProfit;
         }
 
         #endregion
@@ -178,8 +187,15 @@ namespace StocksSimulation
                 return ReleaseReason.GoodProfit;
             }
 
-            if (profitRatio < AnalyzerSimulator.MaxLooseRatio)
+            //if (OnLooseSaving && profitRatio > AnalyzerSimulator.MaxLooseRatio / 2)
+            //{
+            //    OnLooseSaving = false;
+            //    return ReleaseReason.BadLoose;
+            //}
+
+            if (profitRatio < AnalyzerSimulator.MaxLooseRatio && CountDay - day < PredictedChange.Range / 1.5)
             {
+                OnLooseSaving = true;
                 return ReleaseReason.BadLoose;
             }
 

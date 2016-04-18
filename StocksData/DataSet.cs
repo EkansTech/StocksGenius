@@ -115,6 +115,11 @@ namespace StocksData
             }
         }
 
+        public override string ToString()
+        {
+            return DataSetName;
+        }
+
         #endregion
 
         #region Private Methods

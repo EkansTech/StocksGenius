@@ -17,11 +17,13 @@ namespace StocksData
         VolumeChange = CloseChange * 2,
         CloseOpenDif = VolumeChange * 2,
         OpenPrevCloseDif = CloseOpenDif * 2,
-        NegativeOpenChange = OpenPrevCloseDif * 2,
+        PrevCloseOpenDif = OpenPrevCloseDif * 2,
+        NegativeOpenChange = PrevCloseOpenDif * 2,
         NegativeCloseChange = NegativeOpenChange * 2,
         NegativeVolumeChange = NegativeCloseChange * 2,
         NegativeCloseOpenDif = NegativeVolumeChange * 2,
         NegativeOpenPrevCloseDif = NegativeCloseOpenDif * 2,
+        NegativePrevCloseOpenDif = NegativeOpenPrevCloseDif * 2,
     }
 
     public enum TestDataAction

@@ -21,6 +21,8 @@ namespace StocksSimulation
 
         InvestmentAnalyzis m_InvestmentAnalyzis;
 
+        private Dictionary<int, DailyAnalyzes> m_DailyAnalyzes = new Dictionary<int, DailyAnalyzes>();
+
         #endregion
 
         #region Properties
@@ -61,7 +63,7 @@ namespace StocksSimulation
             string dataSetsFolder = workingDirectory + DSSettings.DataSetsDir;
             string priceDataSetsFolder = workingDirectory + SimSettings.PriceDataSetsDirectory;
             string predictionsDir = workingDirectory + DSSettings.PredictionDir;
-            EffectivePredictionResult = 0.9;
+            EffectivePredictionResult = DSSettings.MinimumRelevantPredictionResult;
             DataSets = new Dictionary<string, DataSet>();
             PriceDataSets = new Dictionary<string, DataSet>();
             DataPredictions = new Dictionary<string, DataPredictions>();
@@ -94,24 +96,25 @@ namespace StocksSimulation
             m_MaxAccountBalance = 0.0;
             m_MinAccountBalance = 0.0;
             Log.AddMessage("Simulating, Investment money: {0}", AccountBallance);
+            int simulationRun = 0;
 
             for (byte maxPredictedRange = 12; maxPredictedRange <= 12; maxPredictedRange++)
             {
                 MaxPredictedRange = maxPredictedRange;
-                for (double effectivePredictionResult = 0.91; effectivePredictionResult <= 0.91; effectivePredictionResult += 0.005)
+                for (double effectivePredictionResult = 0.91; effectivePredictionResult <= 0.91; effectivePredictionResult += 0.01)
                 {
                     EffectivePredictionResult = effectivePredictionResult;
                     m_PredictionRecords.RemoveAll(x => x.PredictionCorrectness < effectivePredictionResult);
-                    for (double minProfitRatio = 0.09; minProfitRatio <= 0.09; minProfitRatio += 0.005)
+                    for (double minProfitRatio = 0.26; minProfitRatio <= 0.26; minProfitRatio += 0.05)
                     {
                         MinProfitRatio = minProfitRatio;
-                        for (double maxLooseRatio = -0.06; maxLooseRatio >= -0.06; maxLooseRatio -= 0.005)
+                        for (double maxLooseRatio = -0.31; maxLooseRatio >= -0.31; maxLooseRatio -= 0.05)
                         {
                             MaxLooseRatio = maxLooseRatio;
-                            for (int maxInvestmentPerStock = 1; maxInvestmentPerStock <= 1; maxInvestmentPerStock++)
+                            for (int maxInvestmentPerStock = 5; maxInvestmentPerStock <= 5; maxInvestmentPerStock++)
                             {
                                 MaxInvestmentsPerStock = maxInvestmentPerStock;
-                                for (int maxNumOfInvestments = 25; maxNumOfInvestments <= 25; maxNumOfInvestments += 25)
+                                for (int maxNumOfInvestments = 35; maxNumOfInvestments <= 35; maxNumOfInvestments += 1)
                                 {
                                     MaxNumOfInvestments = maxNumOfInvestments;
                                     m_MaxAccountBalance = 0.0;
@@ -119,7 +122,7 @@ namespace StocksSimulation
                                     AccountBallance = 0.0;
                                     TotalProfit = 0.0;
 
-                                    SimRecorder simRecorder = new SimRecorder(EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, MaxLooseRatio, MaxPredictedRange);
+                                    SimRecorder simRecorder = new SimRecorder(EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, MaxLooseRatio, MaxPredictedRange, simulationRun);
                                     for (int dataSetRow = DSSettings.TestRange; dataSetRow >= 0; dataSetRow--)
                                     {
                                         m_SimulationDate = new DateTime((long)DataSets.Values.First().GetDayData(dataSetRow)[0]);
@@ -127,6 +130,7 @@ namespace StocksSimulation
                                         RunSimulationCycle(dataSetRow);
                                         simRecorder.AddRecord(dataSetRow, m_SimulationDate, AccountBallance, TotalProfit);
                                     }
+                                    simulationRun++;
                                     m_InvestmentAnalyzis.SimulationRun++;
                                     simRecorder.SaveToFile("iForex", WorkingDirectory + SimSettings.SimulationRecordsDirectory);
                                 }
@@ -252,10 +256,19 @@ namespace StocksSimulation
         private void RunSimulationCycle(int day)
         {
             Log.AddMessage("{0}:", m_SimulationDate.ToShortDateString());
-            List<PredictionRecord> relevantAnalyzerRecords = GetRelevantPredictions(day);
-            DailyAnalyzes dailyAnalyzes = GetPredictionsConclusions(day);
+            DailyAnalyzes dailyAnalyzes;
+            if (m_DailyAnalyzes.ContainsKey(day))
+            {
+                dailyAnalyzes = m_DailyAnalyzes[day];
+            }
+            else
+            {
+                List<PredictionRecord> relevantAnalyzerRecords = GetRelevantPredictions(day);
+                dailyAnalyzes = GetPredictionsConclusions(day);
+                m_DailyAnalyzes.Add(day, dailyAnalyzes);
+            }
            // Log.AddMessage(GetAnalyzeConclussionsReport(dailyAnalyzes));
-            //dailyAnalyzes.RemoveBadAnalyzes();
+            dailyAnalyzes.RemoveBadAnalyzes();
 
             UpdateInvestments(dailyAnalyzes, day);
 
@@ -301,8 +314,7 @@ namespace StocksSimulation
             {
 
             }
-            investment.Release(day);
-            TotalProfit += investment.Profit;
+            TotalProfit = investment.Release(day, TotalProfit);
             Log.AddMessage("Release investment of {0} with prediction {1}:", investment.DataSet.DataSetName, investment.PredictedChange.ToString());
             Log.AddMessage("AccountBalance {0}, release profit {1}, total profit {2}, correctness {3}, {4} predictions", AccountBallance.ToString("0.00"),
                 investment.GetProfit(day).ToString("0.00"), TotalProfit.ToString("0.00"), investment.Analyze.AverageCorrectness.ToString("0.00"), investment.Analyze.NumOfPredictions);
@@ -337,7 +349,7 @@ namespace StocksSimulation
                 m_MinAccountBalance = AccountBallance;
             }
             Log.AddMessage("New investment of {0} with prediction {1}, num of investments {2}:", investment.DataSet.DataSetName, investment.PredictedChange.ToString(), Investments.Count + 1);
-            Log.AddMessage("Account balance {0}, bought {1} shares, price {2}", AccountBallance, investment.Ammount, investment.InvestedPrice);
+            Log.AddMessage("Account balance {0}, {1} {2} shares, price {3}", AccountBallance, (investment.InvestmentType == BuySell.Buy) ? "bought" : "sold", investment.Ammount, investment.InvestedPrice);
             Investments.Add(investment);
         }
 
@@ -348,19 +360,21 @@ namespace StocksSimulation
                 return;
             }
 
-            //List<Analyze> analyzes = new List<Analyze>();
-            //foreach (DataSetAnalyzes dataSetAnalyze in dailyAnalyzes.Values)
-            //{
-            //    analyzes.AddRange(dataSetAnalyze.Values);
-            //}
+            List<Analyze> analyzes = new List<Analyze>();
+            foreach (DataSet dataSet in dailyAnalyzes.Keys)
+            {
+                analyzes.AddRange(dailyAnalyzes[dataSet].Values);
+            }
 
-            //foreach (Analyze analyze in analyzes.OrderByDescending(x => x.AverageCorrectness))
-            //{
-            //    if (Investments.Count < MaxNumOfInvestments)
-            //    {
-            //        AddInvestment(day, analyze);
-            //    }
-            //}
+            var orderAnalyzes = analyzes.OrderBy(x => x, new AnalyzeComparer());
+
+            foreach (Analyze analyze in orderAnalyzes)
+            {
+                if (Investments.Count < MaxNumOfInvestments)
+                {
+                    AddInvestment(day, analyze);
+                }
+            }
 
             //return;
 
@@ -378,16 +392,18 @@ namespace StocksSimulation
             //    }
 
             //}
-            foreach (DataSetAnalyzes dataSetAnalyze in dailyAnalyzes.Values)
-            {
-                foreach (Analyze analyze in dataSetAnalyze.Values.OrderByDescending(x => x.AverageCorrectness))//OrderBy(x => x, new AnalyzeComparer()))
-                {
-                    if (Investments.Count < MaxNumOfInvestments && analyze.PredictedChange.Range <= MaxPredictedRange)
-                    {
-                        AddInvestment(day, analyze);
-                    }
-                }
-            }
+
+
+            //foreach (DataSetAnalyzes dataSetAnalyze in dailyAnalyzes.Values)
+            //{
+            //    foreach (Analyze analyze in dataSetAnalyze.Values.OrderBy(x => x, new AnalyzeComparer())) //OrderByDescending(x => x.AverageCorrectness)) 
+            //    {
+            //        if (Investments.Count < MaxNumOfInvestments && analyze.PredictedChange.Range <= MaxPredictedRange)
+            //        {
+            //            AddInvestment(day, analyze);
+            //        }
+            //    }
+            //}
         }
 
         private CombinationItem GetRandomPredictedChange()
@@ -428,12 +444,12 @@ namespace StocksSimulation
             return report;
         }
 
-        private List<PredictionRecord> GetRelevantPredictions(int dataSetRow)
+        private List<PredictionRecord> GetRelevantPredictions(int day)
         {
             List<PredictionRecord> fitAnalyzerRecords = new List<PredictionRecord>();
             foreach (PredictionRecord predictionRecord in m_PredictionRecords)
             {
-                if (IsAnalyzeFits(dataSetRow, predictionRecord))
+                if (IsAnalyzeFits(day, predictionRecord))
                 {
                     fitAnalyzerRecords.Add(predictionRecord);
                 }
@@ -457,6 +473,78 @@ namespace StocksSimulation
             }
 
             return true;
+        }
+
+        public bool IsContainsGoodPrediction(DataSet dataSet, CombinationItem combinationItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
+        {
+            double currentOpenAverage = CalculateAverage(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Open);
+            double currentCloseAverage = CalculateAverage(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Close);
+            double prevOpenAverage = CalculateAverage(dataSet, dataRow + combinationItem.Range, combinationItem.Range, DataSet.DataColumns.Open);
+            double prevCloseAverage = CalculateAverage(dataSet, dataRow + combinationItem.Range, combinationItem.Range, DataSet.DataColumns.Close);
+            double currentVolumeAverage = CalculateAverage(dataSet, dataRow, combinationItem.Range, DataSet.DataColumns.Volume);
+            double prevVolumeAverage = CalculateAverage(dataSet, dataRow + combinationItem.Range, combinationItem.Range, DataSet.DataColumns.Volume);
+
+            if (combinationItem.DataItem == DataItem.OpenChange
+                && (currentOpenAverage - prevOpenAverage) / prevOpenAverage > upperErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] < currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.CloseChange
+                && (currentCloseAverage - prevCloseAverage) / prevCloseAverage > upperErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] < currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.VolumeChange
+                && (currentVolumeAverage - prevVolumeAverage) / prevVolumeAverage > upperErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] < currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.CloseOpenDif
+                && (currentCloseAverage - currentOpenAverage) / currentOpenAverage > upperErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] < currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.OpenPrevCloseDif
+                && (currentOpenAverage - prevCloseAverage) / prevCloseAverage > upperErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] < currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.PrevCloseOpenDif
+                && (prevCloseAverage - prevOpenAverage) / prevOpenAverage > upperErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] < currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.NegativeOpenChange
+                && (currentOpenAverage - prevOpenAverage) / prevOpenAverage < lowerErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] > currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.NegativeCloseChange
+                && (currentCloseAverage - prevCloseAverage) / prevCloseAverage < lowerErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] > currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.NegativeVolumeChange
+                && (currentVolumeAverage - prevVolumeAverage) / prevVolumeAverage < lowerErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] > currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.NegativeCloseOpenDif
+                && (currentCloseAverage - currentOpenAverage) / currentOpenAverage < lowerErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] > currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.NegativeOpenPrevCloseDif
+                && (currentOpenAverage - prevCloseAverage) / prevCloseAverage < lowerErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] > currentOpenAverage)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.NegativePrevCloseOpenDif
+                && (prevCloseAverage - prevOpenAverage) / prevOpenAverage < lowerErrorBorder
+                && dataSet[dataRow * (int)DataSet.DataColumns.NumOfColumns + (int)DataSet.DataColumns.Open] > currentOpenAverage)
+            { return true; }
+
+            return false;
+        }
+
+        private double CalculateAverage(DataSet dataSet, int dataRow, int range, DataSet.DataColumns dataColum)
+        {
+            double sum = 0;
+            for (int i = dataRow; i < dataRow + range; i++)
+            {
+                sum += dataSet[i * (int)DataSet.DataColumns.NumOfColumns + (int)dataColum];
+            }
+
+            return sum / range;
         }
 
 

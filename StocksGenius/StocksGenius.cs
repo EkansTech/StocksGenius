@@ -61,20 +61,6 @@ namespace StocksGenius
             }
         }
 
-        public void BuildLatestPredictions()
-        {
-            m_StocksData.BuildDataLatestPredictions();
-        }
-
-        public void SimulateLatestPredictions()
-        {
-            string latestpredictionsDirectory = SGSettings.WorkingDirectory + DSSettings.LatestPredictionsDir;
-            string currentProject = SGSettings.WorkingDirectory.Split(Path.DirectorySeparatorChar).Last(x => !string.IsNullOrWhiteSpace(x));
-            string latestPredictionsFilePath = latestpredictionsDirectory + currentProject + DSSettings.LatestPredictionsSuffix + ".csv";
-            LatestSimulator simulator = new LatestSimulator(m_StocksData.DataSetPaths.Values.ToList(), latestPredictionsFilePath);
-            simulator.Simulate();
-        }
-
         public void Simulate()
         {
             AnalyzerSimulator analyzerSimulator = new AnalyzerSimulator(m_StocksData.DataSetPaths.Values.Select(x => Path.GetFileName(x)).ToList(), SGSettings.WorkingDirectory);
@@ -93,11 +79,11 @@ namespace StocksGenius
 
             using (StreamWriter writer = new StreamWriter(string.Format("{0}\\iForexSimSummary{1}.csv", SGSettings.WorkingDirectory, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
             {
-                writer.WriteLine("MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio,Final Profit");
+                writer.WriteLine("SimulationRun,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio,Final Profit");
                 foreach (SimRecorder recorder in recorders)
                 {
-                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6}", recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio, recorder.MaxInvestmentsPerStock, 
-                        recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.Last().AccountBalance);
+                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7}", recorder.SimulationRun, recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio, 
+                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.Last().AccountBalance);
                 }
             }
 

@@ -13,6 +13,8 @@ namespace StocksData
 
         public List<CombinationItem> Combination { get; set; }
 
+        public ulong CombinationULong { get; set; }
+
         public double PredictionCorrectness { get; set; }
 
         public CombinationItem PredictedChange { get; set; }

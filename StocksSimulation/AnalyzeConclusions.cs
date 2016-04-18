@@ -18,10 +18,11 @@ namespace StocksSimulation
             else
             {
                 return y.NumOfPredictions - x.NumOfPredictions;
+                // return (int)((y.AverageCorrectness * 100) - (x.AverageCorrectness * 100));
             }
         }
     }
-    public class Analyze
+    public class Analyze : IComparable
     {
         #region Properties
 
@@ -32,6 +33,8 @@ namespace StocksSimulation
         public CombinationItem PredictedChange { get; set; }
 
         public double AverageCorrectness { get; set; }
+
+        public string DataSetName { get; }
 
         public bool IsPositiveInvestment
         {
@@ -51,8 +54,18 @@ namespace StocksSimulation
         {
             AverageCorrectness = record.PredictionCorrectness;
             DataSet = record.DataSet;
+            DataSetName = DataSet.DataSetName;
             NumOfPredictions = 1;
             PredictedChange = record.PredictedChange;
+        }
+
+        public Analyze(IEnumerable<PredictionRecord> records)
+        {
+            AverageCorrectness = records.Average(x => x.PredictionCorrectness);
+            DataSet = records.First().DataSet;
+            DataSetName = DataSet.DataSetName;
+            NumOfPredictions = records.Count();
+            PredictedChange = records.First().PredictedChange;
         }
 
         #endregion
@@ -63,6 +76,12 @@ namespace StocksSimulation
         {
             AverageCorrectness = (AverageCorrectness * NumOfPredictions + record.PredictionCorrectness) / (NumOfPredictions + 1);
             NumOfPredictions++;
+        }
+
+        public int CompareTo(object obj)
+        {
+            AnalyzeComparer comparer = new AnalyzeComparer();
+            return comparer.Compare(this, obj as Analyze);
         }
 
         #endregion
@@ -100,6 +119,32 @@ namespace StocksSimulation
                 }
 
                 return false;
+            }
+        }
+
+        #endregion
+
+        #region Constructors
+
+        public DataSetAnalyzes()
+        { }
+
+        public DataSetAnalyzes(int capacity) : base(capacity)
+        { }
+
+        public DataSetAnalyzes(Dictionary<CombinationItem, Analyze> dataSetAnalyzes) : base(dataSetAnalyzes)
+        { }
+
+        public DataSetAnalyzes(IEnumerable<PredictionRecord> records)
+        {
+            var changeRecords = records.GroupBy(x => x.PredictedChange);
+            foreach(CombinationItem prediction in DSSettings.PredictionItems)
+            {
+                var predictionRecords = records.Where(x => x.PredictedChange.Equals(prediction));
+                if (predictionRecords.Count() > 0)
+                {
+                    Add(prediction, new Analyze(predictionRecords));
+                }
             }
         }
 
@@ -144,7 +189,8 @@ namespace StocksSimulation
                 List<CombinationItem> badPredictions = new List<CombinationItem>();
                 foreach (CombinationItem combinationItem in this[dataSet].Keys)
                 {
-                    if (this[dataSet].ContainsKey(CombinationItem.Item(DSSettings.OppositeDataItems[combinationItem.DataItem], combinationItem.Range)))
+                    CombinationItem opposite = CombinationItem.Item(DSSettings.OppositeDataItems[combinationItem.DataItem], combinationItem.Range);
+                    if (this[dataSet].ContainsKey(opposite) && this[dataSet][combinationItem].CompareTo(this[dataSet][opposite]) > 0)
                     {
                         badPredictions.Add(combinationItem);
                     }

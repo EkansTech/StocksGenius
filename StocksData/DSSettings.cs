@@ -38,6 +38,8 @@ namespace StocksData
 
         public static readonly List<CombinationItem> ChangeItems = new List<CombinationItem>()
         {
+            new CombinationItem(1, DataItem.PrevCloseOpenDif),
+            new CombinationItem(1, DataItem.NegativePrevCloseOpenDif),
             new CombinationItem(1, DataItem.OpenPrevCloseDif),
             new CombinationItem(1, DataItem.NegativeOpenPrevCloseDif),
             new CombinationItem(1, DataItem.OpenChange),
@@ -54,10 +56,10 @@ namespace StocksData
             new CombinationItem(3, DataItem.NegativeOpenChange),
             new CombinationItem(3, DataItem.VolumeChange),
             new CombinationItem(3, DataItem.NegativeVolumeChange),
-            new CombinationItem(4, DataItem.OpenChange),
-            new CombinationItem(4, DataItem.NegativeOpenChange),
-            new CombinationItem(4, DataItem.VolumeChange),
-            new CombinationItem(4, DataItem.NegativeVolumeChange),
+            //new CombinationItem(4, DataItem.OpenChange),
+            //new CombinationItem(4, DataItem.NegativeOpenChange),
+            //new CombinationItem(4, DataItem.VolumeChange),
+            //new CombinationItem(4, DataItem.NegativeVolumeChange),
             new CombinationItem(5, DataItem.OpenChange),
             new CombinationItem(5, DataItem.NegativeOpenChange),
             new CombinationItem(5, DataItem.VolumeChange),
@@ -92,9 +94,9 @@ namespace StocksData
 
         public const string DataSetCodesFile = "datasets-codes.csv";
 
-        public const double PredictionErrorRange = 0.005;
+        public const double PredictionErrorRange = 0.002;
 
-        public const int MinimumChangesForPrediction = 30;
+        public const double MinimumChangesForPredictionRatio = 0.005;
 
         public const int TestRange = 100;
 
@@ -104,9 +106,9 @@ namespace StocksData
 
         public readonly static int TestMinSize = TestRange + 2 * ChangeItems.OrderByDescending(x => x.Range).First().Range;
 
-        public const int PredictionMaxCombinationSize = 6;
+        public const int PredictionMaxCombinationSize = 8;
 
-        public const double MinimumRelevantPredictionResult = 0.85;
+        public const double MinimumRelevantPredictionResult = 0.9;
 
         public static readonly int GPUCycleSize = 1024 * 1024;
 
@@ -124,6 +126,7 @@ namespace StocksData
             DataItem.VolumeChange,
             DataItem.CloseOpenDif,
             DataItem.OpenPrevCloseDif,
+            DataItem.PrevCloseOpenDif,
         };
 
         public static readonly List<DataItem> NegativeChanges = new List<DataItem>()
@@ -133,6 +136,7 @@ namespace StocksData
             DataItem.NegativeVolumeChange,
             DataItem.NegativeCloseOpenDif,
             DataItem.NegativeOpenPrevCloseDif,
+            DataItem.NegativePrevCloseOpenDif
         };
 
         public static readonly Dictionary<DataItem, DataItem> OppositeDataItems = new Dictionary<DataItem, DataItem>()
@@ -142,11 +146,13 @@ namespace StocksData
             { DataItem.VolumeChange, DataItem.NegativeVolumeChange },
             { DataItem.CloseOpenDif, DataItem.NegativeCloseOpenDif },
             { DataItem.OpenPrevCloseDif, DataItem.NegativeOpenPrevCloseDif },
+            { DataItem.PrevCloseOpenDif, DataItem.NegativePrevCloseOpenDif },
             { DataItem.NegativeOpenChange, DataItem.OpenChange },
             { DataItem.NegativeCloseChange, DataItem.CloseChange },
             { DataItem.NegativeVolumeChange, DataItem.VolumeChange },
             { DataItem.NegativeCloseOpenDif, DataItem.CloseOpenDif },
             { DataItem.NegativeOpenPrevCloseDif, DataItem.OpenPrevCloseDif },
+            { DataItem.NegativePrevCloseOpenDif, DataItem.PrevCloseOpenDif },
         };
     }
 }

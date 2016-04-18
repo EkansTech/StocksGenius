@@ -77,7 +77,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DSSettings.cs" />
-    <Compile Include="LatestPredictions.cs" />
     <Compile Include="PredictionRecord.cs" />
     <Compile Include="BloombergDataSource.cs" />
     <Compile Include="CombinationItem.cs" />

@@ -129,34 +129,6 @@ namespace StocksData
             return;
         }
 
-        public void BuildDataLatestPredictions()
-        {
-            string latestpredictionsDirectory = WorkingDirectory + DSSettings.LatestPredictionsDir;
-            string currentProject = WorkingDirectory.Split(Path.DirectorySeparatorChar).Last(x => !string.IsNullOrWhiteSpace(x));
-            string latestPredictionsFilePath = latestpredictionsDirectory + currentProject + DSSettings.LatestPredictionsSuffix + ".csv";
-            if (!Directory.Exists(latestpredictionsDirectory))
-            {
-                Directory.CreateDirectory(latestpredictionsDirectory);
-            }
-
-            double loadTime = 0;
-            double gpuTime = 0;
-
-            Console.WriteLine("Current Set: {0}", currentProject);
-
-            DateTime timePoint = DateTime.Now;
-            LatestPredictions dataPredictions = new LatestPredictions(m_DataSetPaths.Values.ToList(), latestPredictionsFilePath, true);
-            loadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
-            gpuTime += dataPredictions.GPULoadTime;
-            dataPredictions.SaveDataToFile(latestpredictionsDirectory);
-
-            Console.WriteLine(string.Format("Latest Prediction time = {0}, GPU total time - {1}", loadTime / 1000, gpuTime / 1000));
-            Console.WriteLine();
-            Console.ReadKey();
-
-            return;
-        }
-
         public void AnalyzeChangesEffects()
         {
             string latestpredictionsDirectory = WorkingDirectory + DSSettings.LatestPredictionsDir;

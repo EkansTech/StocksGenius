@@ -59,6 +59,8 @@ namespace StocksData
         public DataSet DataSet { get; private set; }
         public double GPULoadTime { get; internal set; }
 
+        public int MinimumChangesForPrediction { get { return (int)(DataSet.NumOfRows * DSSettings.MinimumChangesForPredictionRatio); } }
+
         #endregion
 
         #region Constructors
@@ -221,6 +223,7 @@ namespace StocksData
                     {
                         predictionRecords.Add(new PredictionRecord()
                         {
+                            CombinationULong = combination,
                             Combination = CombinationItem.ULongToCombinationItems(combination),
                             PredictionCorrectness = this[combination][dataColumn],
                             PredictedChange = DSSettings.PredictionItems[dataColumn],
@@ -259,7 +262,7 @@ namespace StocksData
                 if (combinationPart == combinationSize - 1)
                 {
                     List<int> predictions = CombineLists(m_PredictedCollections[combination], m_PredictedCollections[DSSettings.ChangeItems[i].ToULong()]);
-                    if (predictions.Count >= DSSettings.MinimumChangesForPrediction)
+                    if (predictions.Count >= MinimumChangesForPrediction)
                     {
                         m_PredictedCollections.Add(combination | DSSettings.ChangeItems[i].ToULong(), predictions);
                     }
@@ -349,7 +352,7 @@ namespace StocksData
                     }
                 }
 
-                if (combinationPredictions.Count >= DSSettings.MinimumChangesForPrediction)
+                if (combinationPredictions.Count >= MinimumChangesForPrediction)
                 {
                     m_PredictedCollections.Add(combinationItemULong, combinationPredictions);
                 }
@@ -359,51 +362,59 @@ namespace StocksData
         public bool IsContainsPrediction(CombinationItem combinationItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
         {
             if (combinationItem.DataItem == DataItem.OpenChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false) > upperErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, 1, 0) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.CloseChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, false) > upperErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, 1, 0) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.VolumeChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, false) > upperErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, 1, 0) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.CloseOpenDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, true) > upperErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, 0, 0) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.OpenPrevCloseDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, false) > upperErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, 1, 0) > upperErrorBorder)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.PrevCloseOpenDif
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, 1, 1) > upperErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeOpenChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, false) < lowerErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, 1, 0) < lowerErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeCloseChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, false) < lowerErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, 1, 0) < lowerErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeVolumeChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, false) < lowerErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, 1, 0) < lowerErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeCloseOpenDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, true) < lowerErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, 0, 1) < lowerErrorBorder)
             { return true; }
             if (combinationItem.DataItem == DataItem.NegativeOpenPrevCloseDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, false) < lowerErrorBorder)
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, 1, 0) < lowerErrorBorder)
+            { return true; }
+            if (combinationItem.DataItem == DataItem.NegativePrevCloseOpenDif
+                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, 1, 1) < lowerErrorBorder)
             { return true; }
 
             return false;
         }
 
-        private double CalculateChange(int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, bool isDifFromCurrentDate)
+        private double CalculateChange(int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, int fromRowOffset, int ofRowOffset)
         {
-            int dataOfStartPosition = isDifFromCurrentDate ? 0 : range;
-            double sumOf = 0;
-            double sumFrom = 0;
-            for (int i = dataRow; i < dataRow + range; i++)
-            {
-                sumOf += DataSet[(i + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
-                sumFrom += DataSet[i * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
-            }
+            int dataFromStartPosition = fromRowOffset * range;
+            int dataOfStartPosition = ofRowOffset * range;
+            double sumOf = DataSet[dataOfStartPosition * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
+            double sumFrom = DataSet[dataFromStartPosition * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
+            //for (int i = dataRow; i < dataRow + range; i++)
+            //{
+            //    sumOf += DataSet[(i + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
+            //    sumFrom += DataSet[(i + dataFromStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
+            //}
 
-            return (sumFrom - sumOf) / sumOf / range;
+            //return (sumFrom - sumOf) / sumOf / range;
+            return (sumFrom - sumOf) / sumOf ;
         }
 
         private void PredictCPU()
@@ -598,7 +609,7 @@ namespace StocksData
             m_GPUCyclesPerSize++;
             DateTime timePoint = DateTime.Now;
             double[] predictionResultsArray = m_GPUPredictions.PredictCombinations(m_GPUCombinationsItems, 
-                combinationSize, m_GPUCombinationNum, DSSettings.MinimumChangesForPrediction, DSSettings.MinimumRelevantPredictionResult);
+                combinationSize, m_GPUCombinationNum, MinimumChangesForPrediction, DSSettings.MinimumRelevantPredictionResult);
             GPULoadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
             Console.WriteLine("{0} seconds for {1} combinations", (DateTime.Now - timePoint).TotalMilliseconds / 1000, m_GPUCombinationNum);
 

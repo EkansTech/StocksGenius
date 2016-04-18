@@ -50,6 +50,8 @@ namespace StocksSimulation
 
         public byte MaxPredictedRange { get; set; }
 
+        public int SimulationRun { get; set; }
+
         #endregion
 
         #region Constructors
@@ -64,11 +66,12 @@ namespace StocksSimulation
             MaxNumOfInvestments = Convert.ToInt32(fileProperties[4]);
             MaxLooseRatio = Convert.ToDouble(fileProperties[5]);
             MaxPredictedRange = Convert.ToByte(fileProperties[6]);
+            SimulationRun = Convert.ToInt32(fileProperties[7]);
 
             LoadFromFile(filePath);
         }
 
-        public SimRecorder(double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, int maxNumOfInvestments, double maxLooseRatio, byte maxPredictedRange)
+        public SimRecorder(double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, int maxNumOfInvestments, double maxLooseRatio, byte maxPredictedRange, int simulationRun)
         {
             EffectivePredictionResult = effectivePredictionResult;
             MinProfitRatio = minProfitRatio;
@@ -76,6 +79,7 @@ namespace StocksSimulation
             MaxNumOfInvestments = maxNumOfInvestments;
             MaxLooseRatio = maxLooseRatio;
             MaxPredictedRange = maxPredictedRange;
+            SimulationRun = simulationRun;
         }
 
         #endregion
@@ -89,8 +93,8 @@ namespace StocksSimulation
 
         public void SaveToFile(string name, string folderPath)
         {
-            string filePath = string.Format("{0}\\{1}_{2}_{3}_{4}_{5}_{6}_{7}_{8}.csv", folderPath, name, EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, 
-                MaxNumOfInvestments, MaxLooseRatio, MaxPredictedRange, DateTime.Now.ToString().Replace(':', '_').Replace('/','_'));
+            string filePath = string.Format("{0}\\{1}_{2}_{3}_{4}_{5}_{6}_{7}_{8}_{9}.csv", folderPath, name, EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, 
+                MaxNumOfInvestments, MaxLooseRatio, MaxPredictedRange, SimulationRun, DateTime.Now.ToString().Replace(':', '_').Replace('/','_'));
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {

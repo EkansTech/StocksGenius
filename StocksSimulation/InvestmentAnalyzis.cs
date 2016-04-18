@@ -57,12 +57,12 @@ namespace StocksSimulation
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {
-                writer.WriteLine("SimulationRun,ReleseReason,InvestmentDay,ReleaseDay,InvestmentType,DataSetName,InvestedPrive,Profit,PredictedChange,NumOfPredictions,AverageCorrectness");
+                writer.WriteLine("SimulationRun,ReleseReason,InvestmentDay,ReleaseDay,InvestmentType,DataSetName,InvestedPrive,Profit,TotalProfit,PredictedChange,NumOfPredictions,AverageCorrectness");
                 foreach (int simulationRun in SimulationData.Keys)
                 {
                     foreach (Investment investment in SimulationData[simulationRun])
                     {
-                        writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}",
+                        writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}",
                             simulationRun,
                             investment.ReleaseReason,
                             investment.InvestmentDay,
@@ -71,6 +71,7 @@ namespace StocksSimulation
                             investment.DataSet.DataSetName,
                             investment.InvestedPrice,
                             investment.Profit,
+                            investment.ReleaseTotalProfit,
                             investment.PredictedChange.ToString(),
                             investment.Analyze.NumOfPredictions,
                             investment.Analyze.AverageCorrectness);

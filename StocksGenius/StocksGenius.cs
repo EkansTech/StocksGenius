@@ -79,11 +79,40 @@ namespace StocksGenius
 
             using (StreamWriter writer = new StreamWriter(string.Format("{0}\\iForexSimSummary{1}.csv", SGSettings.WorkingDirectory, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
             {
-                writer.WriteLine("SimulationRun,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio,Final Profit");
+                writer.WriteLine("SimulationRun,MinPredictedRange,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio,MinTotalProfit,MaxTotalProfit,Final Profit");
                 foreach (SimRecorder recorder in recorders)
                 {
-                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7}", recorder.SimulationRun, recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio, 
-                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.Last().AccountBalance);
+                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}", recorder.SimulationRun, recorder.MinPredictedRange, recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio, 
+                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.MinTotalProfit, recorder.MaxTotalProfit, recorder.Last().AccountBalance);
+                }
+            }
+
+            return;
+        }
+
+        public void SimulateModel()
+        {
+            StockSimulation stockSimulation = new StockSimulation(m_StocksData.DataSetPaths.Values.Select(x => Path.GetFileName(x)).ToList(), SGSettings.WorkingDirectory);
+            //analyzerSimulator.TestAnalyzeResults(stocksDataPath + iForexTestAnalyzerFolder);
+            //Log.ConnectToConsole = false;
+            stockSimulation.Simulate();
+
+            //Console.Write(Log.ToString());
+            Log.SaveLogToFile(SGSettings.WorkingDirectory + "StocksSimulation.log");
+
+            List<SimRecorder> recorders = new List<SimRecorder>();
+            foreach (string filePath in Directory.GetFiles(SGSettings.WorkingDirectory + SimSettings.SimulationRecordsDirectory))
+            {
+                recorders.Add(new SimRecorder(filePath));
+            }
+
+            using (StreamWriter writer = new StreamWriter(string.Format("{0}\\StocksSimSummary{1}.csv", SGSettings.WorkingDirectory, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
+            {
+                writer.WriteLine("SimulationRun,MinPredictedRange,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio,MinTotalProfit,MaxTotalProfit,Final Profit");
+                foreach (SimRecorder recorder in recorders)
+                {
+                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}", recorder.SimulationRun, recorder.MinPredictedRange, recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio,
+                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.MinTotalProfit, recorder.MaxTotalProfit, recorder.Last().AccountBalance);
                 }
             }
 
@@ -130,7 +159,7 @@ namespace StocksGenius
         {
             foreach (CombinationItem combinationItem in predictionRecord.Combination)
             {
-                if (!m_StocksData.DataPredictions[predictionRecord.DataSet.DataSetName].IsContainsPrediction(combinationItem, dataSetRow, -DSSettings.PredictionErrorRange, DSSettings.PredictionErrorRange))
+                if (!m_StocksData.DataPredictions[predictionRecord.DataSet.DataSetName].IsContainsPrediction(combinationItem, dataSetRow, DSSettings.PredictionErrorRange, -DSSettings.PredictionErrorRange))
                 {
                     return false;
                 }

@@ -168,6 +168,11 @@ namespace StocksData
         }
         public void SaveDataToFile(string folderPath)
         {
+            if (!Directory.Exists(folderPath))
+            {
+                Directory.CreateDirectory(folderPath);
+            }
+
             using (StreamWriter csvFile = new StreamWriter(folderPath + "\\" + PredictionDataSetName + ".csv"))
             {
                 // Write the first line
@@ -200,11 +205,11 @@ namespace StocksData
         {
             string[] data = dataLine.Split(',');
 
-            ulong combination = CombinationItem.StringToCombinationULong(data[0]);
+            ulong combination = Convert.ToUInt64(data[0]);
 
             List<double> combinationPrediction = new List<double>();
 
-            for (int column = 1; column < data.Length; column++)
+            for (int column = 2; column < data.Length; column++)
             {
                 combinationPrediction.Add(Convert.ToDouble(data[column]));
             }
@@ -361,42 +366,35 @@ namespace StocksData
 
         public bool IsContainsPrediction(CombinationItem combinationItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
         {
-            if (combinationItem.DataItem == DataItem.OpenChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, 1, 0) > upperErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.CloseChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, 1, 0) > upperErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.VolumeChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, 1, 0) > upperErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.CloseOpenDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, 0, 0) > upperErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.OpenPrevCloseDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, 1, 0) > upperErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.PrevCloseOpenDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, 1, 1) > upperErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.NegativeOpenChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Open, 1, 0) < lowerErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.NegativeCloseChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Close, 1, 0) < lowerErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.NegativeVolumeChange
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, 1, 0) < lowerErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.NegativeCloseOpenDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, 0, 1) < lowerErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.NegativeOpenPrevCloseDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Open, DataSet.DataColumns.Close, 1, 0) < lowerErrorBorder)
-            { return true; }
-            if (combinationItem.DataItem == DataItem.NegativePrevCloseOpenDif
-                && CalculateChange(dataRow, combinationItem.Range, DataSet.DataColumns.Close, DataSet.DataColumns.Open, 1, 1) < lowerErrorBorder)
-            { return true; }
+            ChangeMap changeMap = DSSettings.DataItemsCalculationMap[combinationItem.DataItem];
+
+            double change = CalculateChange(dataRow, combinationItem.Range, changeMap.FromData, changeMap.OfData, changeMap.FromOffset, changeMap.OfOffset);
+
+            if ((changeMap.IsPositiveChange && change > upperErrorBorder) || (!changeMap.IsPositiveChange && change < lowerErrorBorder))
+            {
+                return true;
+            }
+            
+            return false;
+        }
+
+        public bool IsGoodPrediction(CombinationItem changeItem, CombinationItem predictedItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
+        {
+            if (!IsContainsPrediction(changeItem, dataRow + changeItem.Range - 1, upperErrorBorder, lowerErrorBorder))
+            {
+                return false;
+            }
+
+            ChangeMap changeMap = DSSettings.DataItemsCalculationMap[predictedItem.DataItem];
+
+            double fromAverage = CalculateAverage(dataRow, predictedItem.Range - 1, changeMap.FromData);
+            double ofAverage = CalculateAverage(dataRow + predictedItem.Range, predictedItem.Range, changeMap.FromData);
+            double change = (fromAverage - ofAverage) / ofAverage;
+
+            if ((changeMap.IsPositiveChange && change <= upperErrorBorder) || (!changeMap.IsPositiveChange && change >= lowerErrorBorder))
+            {
+                return true;
+            }
 
             return false;
         }
@@ -405,16 +403,26 @@ namespace StocksData
         {
             int dataFromStartPosition = fromRowOffset * range;
             int dataOfStartPosition = ofRowOffset * range;
-            double sumOf = DataSet[dataOfStartPosition * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
-            double sumFrom = DataSet[dataFromStartPosition * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
-            //for (int i = dataRow; i < dataRow + range; i++)
-            //{
-            //    sumOf += DataSet[(i + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
-            //    sumFrom += DataSet[(i + dataFromStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
-            //}
+            double sumOf = 0;
+            double sumFrom = 0;
+            for (int i = dataRow; i < dataRow + range; i++)
+            {
+                sumOf += DataSet[(i + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
+                sumFrom += DataSet[(i + dataFromStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
+            }
 
-            //return (sumFrom - sumOf) / sumOf / range;
-            return (sumFrom - sumOf) / sumOf ;
+            return (sumFrom - sumOf) / sumOf / range;
+        }
+
+        private double CalculateAverage(int dataRow, int range, DataSet.DataColumns dataColum)
+        {
+            double sum = 0;
+            for (int i = dataRow; i < dataRow + range; i++)
+            {
+                sum += DataSet[i * (int)DataSet.DataColumns.NumOfColumns + (int)dataColum];
+            }
+
+            return sum / range;
         }
 
         private void PredictCPU()
@@ -708,7 +716,7 @@ namespace StocksData
 
         private string GetDataString(ulong combination)
         {
-            string dataString = CombinationItem.CombinationToString(combination);
+            string dataString = combination.ToString() + "," + CombinationItem.CombinationToString(combination);
 
             for (int i = 0; i < NumOfDataColumns; i++)
             {
@@ -720,7 +728,7 @@ namespace StocksData
 
         private string GetColumnNamesString()
         {
-            string columnNames = "Combination";
+            string columnNames = "Combination,CombinationItems";
 
             for (int changePrediction = 0; changePrediction < DSSettings.PredictionItems.Count; changePrediction++)
             {

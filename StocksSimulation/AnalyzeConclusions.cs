@@ -1,6 +1,7 @@
 ﻿using StocksData;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -210,6 +211,77 @@ namespace StocksSimulation
             foreach (DataSet dataSet in emptyAnalyzes)
             {
                 Remove(dataSet);
+            }
+        }
+
+        #endregion
+    }
+
+    public class AnalyzesSummary : Dictionary<int, Dictionary<int, DailyAnalyzes>>
+    {
+        #region Properties
+
+        private string m_FileName = "AnalyzesSummary";
+
+        public string FileName
+        {
+            get { return m_FileName; }
+            set { m_FileName = value; }
+        }
+
+        public string WorkingDirectory { get; set; }
+
+        #endregion
+
+        #region Constructors
+
+        public AnalyzesSummary(string workingDirectory)
+        {
+            WorkingDirectory = workingDirectory;
+        }
+
+        #endregion
+
+        #region Interface
+
+        public void Add(int simulationRun, int day, DailyAnalyzes dailyAnalyzes)
+        {
+            if (!ContainsKey(simulationRun))
+            {
+                Add(simulationRun, new Dictionary<int, DailyAnalyzes>());
+            }
+
+            this[simulationRun].Add(day, dailyAnalyzes);
+        }
+
+        public void SaveToFile()
+        {
+            string filePath = string.Format("{0}\\{1}_{2}.csv", WorkingDirectory, FileName, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'));
+
+            using (StreamWriter writer = new StreamWriter(filePath))
+            {
+                writer.WriteLine("SimulationRun,SimulationDay,DataSet,DataItem,Range,AverageCorrectness,NumOfPredictions");
+                foreach (int simulationRun in Keys)
+                {
+                    foreach (int day in this[simulationRun].Keys)
+                    {
+                        foreach (DataSet dataSet in this[simulationRun][day].Keys.OrderBy(x => x.DataSetName))
+                        {
+                            foreach (CombinationItem combinationItem in this[simulationRun][day][dataSet].Keys.OrderBy(x => x.Range))
+                            {
+                                Analyze analyze = this[simulationRun][day][dataSet][combinationItem];
+                                writer.WriteLine("{0},{1},{2},{3},{4},{5},{6}",
+                                    simulationRun,
+                                    day,
+                                    dataSet.DataSetName,
+                                    combinationItem.DataItem,
+                                    combinationItem.Range,
+                                    analyze.AverageCorrectness,
+                                    analyze.NumOfPredictions);
+                            }
+                        }
+                    }
+                }
             }
         }
 

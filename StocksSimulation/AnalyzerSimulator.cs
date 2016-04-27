@@ -11,17 +11,21 @@ namespace StocksSimulation
     {
         #region Members
 
-        List<PredictionRecord> m_PredictionRecords = new List<PredictionRecord>();
+        Dictionary<DataSet, List<PredictionRecord>> m_PredictionRecords = new Dictionary<DataSet, List<PredictionRecord>>();
 
         private DateTime m_SimulationDate;
 
-        private double m_MaxAccountBalance = 0.0;
+        private double m_MaxTotalProfit = 0.0;
 
-        private double m_MinAccountBalance = 0.0;
+        private double m_MinTotalProfit = 0.0;
 
         InvestmentAnalyzis m_InvestmentAnalyzis;
 
         private Dictionary<int, DailyAnalyzes> m_DailyAnalyzes = new Dictionary<int, DailyAnalyzes>();
+
+        private AnalyzesSummary m_AnalyzesSummary;
+
+        private int m_SimulationRun = 0;
 
         #endregion
 
@@ -39,6 +43,8 @@ namespace StocksSimulation
 
         public List<Investment> Investments { get; set; }
 
+        static public byte MinPredictedRange { get; set; }
+
         static public byte MaxPredictedRange { get; set; }
 
         static public double EffectivePredictionResult { get; set; }
@@ -52,6 +58,8 @@ namespace StocksSimulation
         static public double MaxLooseRatio { get; set; }
 
         static public string WorkingDirectory { get; set; }
+
+        static public int MaxInvestmentsLive = 7;
 
         #endregion
 
@@ -68,6 +76,7 @@ namespace StocksSimulation
             PriceDataSets = new Dictionary<string, DataSet>();
             DataPredictions = new Dictionary<string, DataPredictions>();
             m_InvestmentAnalyzis = new InvestmentAnalyzis(workingDirectory);
+            m_AnalyzesSummary = new AnalyzesSummary(workingDirectory);
 
             foreach (string stockFile in stocksFiles)
             {
@@ -75,13 +84,12 @@ namespace StocksSimulation
                 DataPredictions dataPredictions = new DataPredictions(predictionsDir + dataSet.DataSetName + DSSettings.PredictionSuffix + ".csv", dataSet);
                 DataSets.Add(dataSet.DataSetName, dataSet);
                 DataPredictions.Add(dataSet.DataSetName, dataPredictions);
-                m_PredictionRecords.AddRange(dataPredictions.GetBestPredictions(AnalyzerSimulator.EffectivePredictionResult));
+                m_PredictionRecords.Add(dataSet, dataPredictions.GetBestPredictions(AnalyzerSimulator.EffectivePredictionResult));
 
                 DataSet priceDataSet = new DataSet(priceDataSetsFolder + stockFile, TestDataAction.LoadOnlyTestData);
                 PriceDataSets.Add(priceDataSet.DataSetName, priceDataSet);
             }
 
-            m_PredictionRecords = m_PredictionRecords.OrderByDescending(x => x.PredictionCorrectness).ToList();
             Investments = new List<Investment>();
             AccountBallance = 0.0;
             TotalProfit = 0.0;
@@ -93,46 +101,48 @@ namespace StocksSimulation
 
         public void Simulate()
         {
-            m_MaxAccountBalance = 0.0;
-            m_MinAccountBalance = 0.0;
+            m_MaxTotalProfit = 0.0;
+            m_MinTotalProfit = 0.0;
             Log.AddMessage("Simulating, Investment money: {0}", AccountBallance);
-            int simulationRun = 0;
 
-            for (byte maxPredictedRange = 12; maxPredictedRange <= 12; maxPredictedRange++)
+            for (byte minPredictedRange = 1; minPredictedRange <= 1; minPredictedRange++)
             {
-                MaxPredictedRange = maxPredictedRange;
-                for (double effectivePredictionResult = 0.91; effectivePredictionResult <= 0.91; effectivePredictionResult += 0.01)
+                MinPredictedRange = minPredictedRange;
+                for (byte maxPredictedRange = 12; maxPredictedRange <= 12; maxPredictedRange++)
                 {
-                    EffectivePredictionResult = effectivePredictionResult;
-                    m_PredictionRecords.RemoveAll(x => x.PredictionCorrectness < effectivePredictionResult);
-                    for (double minProfitRatio = 0.26; minProfitRatio <= 0.26; minProfitRatio += 0.05)
+                    MaxPredictedRange = maxPredictedRange;
+                    for (double effectivePredictionResult = 0.9; effectivePredictionResult <= 0.9; effectivePredictionResult += 0.001)
                     {
-                        MinProfitRatio = minProfitRatio;
-                        for (double maxLooseRatio = -0.31; maxLooseRatio >= -0.31; maxLooseRatio -= 0.05)
+                        EffectivePredictionResult = effectivePredictionResult;
+                        for (double minProfitRatio = 0.010; minProfitRatio <= 0.010; minProfitRatio += 0.002)
                         {
-                            MaxLooseRatio = maxLooseRatio;
-                            for (int maxInvestmentPerStock = 5; maxInvestmentPerStock <= 5; maxInvestmentPerStock++)
+                            MinProfitRatio = minProfitRatio;
+                            for (double maxLooseRatio = -0.010; maxLooseRatio >= -0.010; maxLooseRatio -= 0.002)
                             {
-                                MaxInvestmentsPerStock = maxInvestmentPerStock;
-                                for (int maxNumOfInvestments = 35; maxNumOfInvestments <= 35; maxNumOfInvestments += 1)
+                                MaxLooseRatio = maxLooseRatio;
+                                for (int maxInvestmentPerStock = 1; maxInvestmentPerStock <= 1; maxInvestmentPerStock++)
                                 {
-                                    MaxNumOfInvestments = maxNumOfInvestments;
-                                    m_MaxAccountBalance = 0.0;
-                                    m_MinAccountBalance = 0.0;
-                                    AccountBallance = 0.0;
-                                    TotalProfit = 0.0;
-
-                                    SimRecorder simRecorder = new SimRecorder(EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, MaxLooseRatio, MaxPredictedRange, simulationRun);
-                                    for (int dataSetRow = DSSettings.TestRange; dataSetRow >= 0; dataSetRow--)
+                                    MaxInvestmentsPerStock = maxInvestmentPerStock;
+                                    for (int maxNumOfInvestments = 28; maxNumOfInvestments <= 28; maxNumOfInvestments += 1)
                                     {
-                                        m_SimulationDate = new DateTime((long)DataSets.Values.First().GetDayData(dataSetRow)[0]);
-                                        Log.AddMessage("Trade date: {0}", m_SimulationDate.ToShortDateString());
-                                        RunSimulationCycle(dataSetRow);
-                                        simRecorder.AddRecord(dataSetRow, m_SimulationDate, AccountBallance, TotalProfit);
+                                        MaxNumOfInvestments = maxNumOfInvestments;
+                                        m_MaxTotalProfit = 0.0;
+                                        m_MinTotalProfit = 0.0;
+                                        AccountBallance = 0.0;
+                                        TotalProfit = 0.0;
+
+                                        SimRecorder simRecorder = new SimRecorder(EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, MaxLooseRatio, MinPredictedRange, MaxPredictedRange, m_SimulationRun);
+                                        for (int dataSetRow = DSSettings.TestRange; dataSetRow >= 0; dataSetRow--)
+                                        {
+                                            m_SimulationDate = new DateTime((long)DataSets.Values.First().GetDayData(dataSetRow)[0]);
+                                            Log.AddMessage("Trade date: {0}", m_SimulationDate.ToShortDateString());
+                                            RunSimulationCycle(dataSetRow);
+                                            simRecorder.AddRecord(dataSetRow, m_SimulationDate, AccountBallance, TotalProfit);
+                                        }
+                                        m_SimulationRun++;
+                                        m_InvestmentAnalyzis.SimulationRun++;
+                                        simRecorder.SaveToFile("iForex", WorkingDirectory + SimSettings.SimulationRecordsDirectory, m_MaxTotalProfit, m_MinTotalProfit);
                                     }
-                                    simulationRun++;
-                                    m_InvestmentAnalyzis.SimulationRun++;
-                                    simRecorder.SaveToFile("iForex", WorkingDirectory + SimSettings.SimulationRecordsDirectory);
                                 }
                             }
                         }
@@ -141,9 +151,10 @@ namespace StocksSimulation
             }
 
             m_InvestmentAnalyzis.SaveToFile();
+            m_AnalyzesSummary.SaveToFile();
 
             Log.AddMessage("Final ammount of money: {0}", AccountBallance);
-            Log.AddMessage("Max account balance = {0}, min account balance = {1}", m_MaxAccountBalance.ToString("0.00"), m_MinAccountBalance.ToString("0.00"));
+            Log.AddMessage("Max total profit = {0}, min total profit = {1}", m_MaxTotalProfit.ToString("0.00"), m_MinTotalProfit.ToString("0.00"));
         }
 
         public void TestAnalyzeResults(string testFolderPath)
@@ -263,10 +274,11 @@ namespace StocksSimulation
             }
             else
             {
-                List<PredictionRecord> relevantAnalyzerRecords = GetRelevantPredictions(day);
                 dailyAnalyzes = GetPredictionsConclusions(day);
                 m_DailyAnalyzes.Add(day, dailyAnalyzes);
             }
+
+            m_AnalyzesSummary.Add(m_SimulationRun, day, dailyAnalyzes);
            // Log.AddMessage(GetAnalyzeConclussionsReport(dailyAnalyzes));
             dailyAnalyzes.RemoveBadAnalyzes();
 
@@ -275,13 +287,34 @@ namespace StocksSimulation
             ReleaseInvestments(day);
 
             CreateNewInvestments(dailyAnalyzes, day);
+
+            AnalyzeInvestments(day);
+
+            DeleteReleasedInvestments();
+        }
+
+        private void AnalyzeInvestments(int day)
+        {
+            foreach (Investment investment in Investments)
+            {
+                m_InvestmentAnalyzis.Add(investment, day);
+            }
+        }
+
+        private void DeleteReleasedInvestments()
+        {
+            List<Investment> investmentsToRelease = Investments.Where(x => x.IsEndOfInvestment).ToList();
+            foreach (Investment investment in investmentsToRelease)
+            {
+                Investments.Remove(investment);
+            }
         }
 
         private void UpdateInvestments(DailyAnalyzes dailyAnalyzes, int dataSetRow)
         {
             foreach (Investment investment in Investments)
             {
-                investment.UpdateInvestment(dailyAnalyzes, dataSetRow);
+                investment.UpdateInvestment(dailyAnalyzes, dataSetRow, TotalProfit);
             }
         }
 
@@ -301,25 +334,19 @@ namespace StocksSimulation
         private void ReleaseInvestment(int day, Investment investment)
         {
             AccountBallance = investment.UpdateAccountOnRelease(day, AccountBallance);
-            if (AccountBallance > m_MaxAccountBalance)
+            if (TotalProfit > m_MaxTotalProfit)
             {
-                m_MaxAccountBalance = AccountBallance;
+                m_MaxTotalProfit = TotalProfit;
             }
-            else if (AccountBallance < m_MinAccountBalance)
+            else if (TotalProfit < m_MinTotalProfit)
             {
-                m_MinAccountBalance = AccountBallance;
+                m_MinTotalProfit = TotalProfit;
             }
 
-            if (investment.GetProfit(day) < -100)
-            {
-
-            }
             TotalProfit = investment.Release(day, TotalProfit);
             Log.AddMessage("Release investment of {0} with prediction {1}:", investment.DataSet.DataSetName, investment.PredictedChange.ToString());
             Log.AddMessage("AccountBalance {0}, release profit {1}, total profit {2}, correctness {3}, {4} predictions", AccountBallance.ToString("0.00"),
                 investment.GetProfit(day).ToString("0.00"), TotalProfit.ToString("0.00"), investment.Analyze.AverageCorrectness.ToString("0.00"), investment.Analyze.NumOfPredictions);
-            Investments.Remove(investment);
-            m_InvestmentAnalyzis.Add(investment);
         }
 
         private void AddInvestment(int day, Analyze analyze)
@@ -338,15 +365,15 @@ namespace StocksSimulation
             {
                 return;
             }
-            Investment investment = new Investment(PriceDataSets[analyze.DataSet.DataSetName], analyze, day, AccountBallance);
+            Investment investment = new Investment(PriceDataSets[analyze.DataSet.DataSetName], analyze, day, AccountBallance, TotalProfit);
             AccountBallance = investment.UpdateAccountOnInvestment(day, AccountBallance);
-            if (AccountBallance > m_MaxAccountBalance)
+            if (TotalProfit > m_MaxTotalProfit)
             {
-                m_MaxAccountBalance = AccountBallance;
+                m_MaxTotalProfit = TotalProfit;
             }
-            else if (AccountBallance < m_MinAccountBalance)
+            else if (TotalProfit < m_MinTotalProfit)
             {
-                m_MinAccountBalance = AccountBallance;
+                m_MinTotalProfit = TotalProfit;
             }
             Log.AddMessage("New investment of {0} with prediction {1}, num of investments {2}:", investment.DataSet.DataSetName, investment.PredictedChange.ToString(), Investments.Count + 1);
             Log.AddMessage("Account balance {0}, {1} {2} shares, price {3}", AccountBallance, (investment.InvestmentType == BuySell.Buy) ? "bought" : "sold", investment.Ammount, investment.InvestedPrice);
@@ -370,7 +397,7 @@ namespace StocksSimulation
 
             foreach (Analyze analyze in orderAnalyzes)
             {
-                if (Investments.Count < MaxNumOfInvestments)
+                if ((Investments.Count < MaxNumOfInvestments) && analyze.PredictedChange.Range <= MaxPredictedRange && analyze.PredictedChange.Range >= MinPredictedRange)
                 {
                     AddInvestment(day, analyze);
                 }
@@ -447,17 +474,17 @@ namespace StocksSimulation
         private List<PredictionRecord> GetRelevantPredictions(int day)
         {
             List<PredictionRecord> fitAnalyzerRecords = new List<PredictionRecord>();
-            foreach (PredictionRecord predictionRecord in m_PredictionRecords)
+            foreach (DataSet dataSet in m_PredictionRecords.Keys)
             {
-                if (IsAnalyzeFits(day, predictionRecord))
+                foreach (PredictionRecord predictionRecord in m_PredictionRecords[dataSet].Where(x => x.PredictionCorrectness > EffectivePredictionResult))
                 {
-                    fitAnalyzerRecords.Add(predictionRecord);
+                    //bool[] goodPredictions = 
+                    if (IsAnalyzeFits(day, predictionRecord))
+                    {
+                        fitAnalyzerRecords.Add(predictionRecord);
+                    }
                 }
             }
-            //for (int i = 0; i < 10 && i < fitAnalyzerRecords.Count; i++)
-            //{
-            //    //Log.AddMessage("Share {0} should change {1} with probability of {2}", fitAnalyzerRecords[i].DataSetName, fitAnalyzerRecords[i].PredictedChange, fitAnalyzerRecords[i].PredictionCorrectness);
-            //}
 
             return fitAnalyzerRecords;
         }
@@ -466,7 +493,7 @@ namespace StocksSimulation
         {
             foreach (CombinationItem combinationItem in predictionRecord.Combination)
             {
-                if (!DataPredictions[predictionRecord.DataSet.DataSetName].IsContainsPrediction(combinationItem, dataSetRow, -DSSettings.PredictionErrorRange, DSSettings.PredictionErrorRange))
+                if (!DataPredictions[predictionRecord.DataSet.DataSetName].IsContainsPrediction(combinationItem, dataSetRow, DSSettings.PredictionErrorRange, -DSSettings.PredictionErrorRange))
                 {
                     return false;
                 }

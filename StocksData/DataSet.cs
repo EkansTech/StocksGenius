@@ -77,9 +77,44 @@ namespace StocksData
         #endregion
 
         #region Interface
+
         public List<double> GetDayData(int rowNumber)
         {
             return GetRange(rowNumber * (int)DataColumns.NumOfColumns, (int)DataColumns.NumOfColumns);
+        }
+
+        public double GetData(int rowNumber, DataColumns dataColumn)
+        {
+            return this[rowNumber * (int)DataColumns.NumOfColumns + (int)dataColumn];
+        }
+
+        public double GetLastChange(int rowNumber, DataColumns dataColumn)
+        {
+            return (this[rowNumber * (int)DataColumns.NumOfColumns + (int)dataColumn] - this[(rowNumber + 1) * (int)DataColumns.NumOfColumns + (int)dataColumn]) / this[(rowNumber + 1) * (int)DataColumns.NumOfColumns + (int)dataColumn];
+        }
+
+        public double GetContinuousChange(int rowNumber, DataColumns dataColumn, int range)
+        {
+            double lastChange = GetLastChange(rowNumber, dataColumn);
+
+            for (int i = rowNumber; i < rowNumber + range; i++)
+            {
+                double newLastChange = GetLastChange(i, dataColumn);
+                if (lastChange > 0 && newLastChange < 0)
+                {
+                    return 0.0;
+                }
+                else if (lastChange < 0 && newLastChange > 0)
+                {
+                    return 0.0;
+                }
+                else
+                {
+                    lastChange += newLastChange;
+                }
+            }
+
+            return lastChange;
         }
 
         public void LoadDataFromFile(string filePath)

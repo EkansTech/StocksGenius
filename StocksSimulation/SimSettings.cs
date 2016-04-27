@@ -8,7 +8,7 @@ namespace StocksSimulation
 {
     public class SimSettings
     {
-        public const double BuySellPenalty = 0.002;
+        public const double BuySellPenalty = 0.00;
 
         public const double InvestmentMoney = 1000;
 

@@ -48,6 +48,10 @@ namespace StocksData
             //new CombinationItem(1, DataItem.NegativeCloseOpenDif),
             new CombinationItem(1, DataItem.VolumeChange),
             new CombinationItem(1, DataItem.NegativeVolumeChange),
+            new CombinationItem(1, DataItem.PrevHighOpenDif),
+            new CombinationItem(1, DataItem.NegativePrevLowOpenDif),
+            new CombinationItem(1, DataItem.PrevHighCloseDif),
+            new CombinationItem(1, DataItem.NegativePrevLowCloseDif),
             new CombinationItem(2, DataItem.OpenChange),
             new CombinationItem(2, DataItem.NegativeOpenChange),
             new CombinationItem(2, DataItem.VolumeChange),
@@ -94,19 +98,23 @@ namespace StocksData
 
         public const string DataSetCodesFile = "datasets-codes.csv";
 
-        public const double PredictionErrorRange = 0.002;
+        public const double PredictionErrorRange = 0.003;
 
-        public const double MinimumChangesForPredictionRatio = 0.005;
+        public const double MinimumChangesForPredictionRatio = 0.01;
 
         public const int TestRange = 100;
 
         public const int PredictionsSize = 300;
 
-        public readonly static int DataSetForPredictionsSize = PredictionsSize + 3 * ChangeItems.OrderByDescending(x => x.Range).First().Range;
+        public readonly static int MaxChangeRange = ChangeItems.Select(x => x.Range).Max();
 
-        public readonly static int TestMinSize = TestRange + 2 * ChangeItems.OrderByDescending(x => x.Range).First().Range;
+        public readonly static int MaxPredictionRange = PredictionItems.Select(x => x.Range).Max();
 
-        public const int PredictionMaxCombinationSize = 8;
+        public readonly static int DataSetForPredictionsSize = PredictionsSize + 3 * MaxChangeRange;
+
+        public readonly static int TestMinSize = TestRange + 3 * MaxChangeRange;
+
+        public const int PredictionMaxCombinationSize = 6;
 
         public const double MinimumRelevantPredictionResult = 0.9;
 
@@ -127,6 +135,8 @@ namespace StocksData
             DataItem.CloseOpenDif,
             DataItem.OpenPrevCloseDif,
             DataItem.PrevCloseOpenDif,
+            DataItem.PrevHighOpenDif,
+            DataItem.PrevHighCloseDif,
         };
 
         public static readonly List<DataItem> NegativeChanges = new List<DataItem>()
@@ -136,7 +146,9 @@ namespace StocksData
             DataItem.NegativeVolumeChange,
             DataItem.NegativeCloseOpenDif,
             DataItem.NegativeOpenPrevCloseDif,
-            DataItem.NegativePrevCloseOpenDif
+            DataItem.NegativePrevCloseOpenDif,
+            DataItem.NegativePrevLowOpenDif,
+            DataItem.NegativePrevLowCloseDif,
         };
 
         public static readonly Dictionary<DataItem, DataItem> OppositeDataItems = new Dictionary<DataItem, DataItem>()
@@ -147,12 +159,36 @@ namespace StocksData
             { DataItem.CloseOpenDif, DataItem.NegativeCloseOpenDif },
             { DataItem.OpenPrevCloseDif, DataItem.NegativeOpenPrevCloseDif },
             { DataItem.PrevCloseOpenDif, DataItem.NegativePrevCloseOpenDif },
+            { DataItem.PrevHighOpenDif, DataItem.None },
+            { DataItem.PrevHighCloseDif, DataItem.None },
             { DataItem.NegativeOpenChange, DataItem.OpenChange },
             { DataItem.NegativeCloseChange, DataItem.CloseChange },
             { DataItem.NegativeVolumeChange, DataItem.VolumeChange },
             { DataItem.NegativeCloseOpenDif, DataItem.CloseOpenDif },
             { DataItem.NegativeOpenPrevCloseDif, DataItem.OpenPrevCloseDif },
             { DataItem.NegativePrevCloseOpenDif, DataItem.PrevCloseOpenDif },
+            { DataItem.NegativePrevLowOpenDif, DataItem.None },
+            { DataItem.NegativePrevLowCloseDif, DataItem.None },
+        };
+
+        public static readonly Dictionary<DataItem, ChangeMap> DataItemsCalculationMap = new Dictionary<DataItem, ChangeMap>()
+        {
+            { DataItem.OpenChange, new ChangeMap(DataSet.DataColumns.Open, DataSet.DataColumns.Open, 0, 1, true)  },
+            { DataItem.CloseChange, new ChangeMap(DataSet.DataColumns.Close, DataSet.DataColumns.Close, 0, 1, true)  },
+            { DataItem.VolumeChange, new ChangeMap(DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, 0, 1, true)  },
+            { DataItem.CloseOpenDif, new ChangeMap(DataSet.DataColumns.Close, DataSet.DataColumns.Open, 0, 0, true)  },
+            { DataItem.OpenPrevCloseDif, new ChangeMap(DataSet.DataColumns.Open, DataSet.DataColumns.Close, 0, 1, true)  },
+            { DataItem.PrevCloseOpenDif, new ChangeMap(DataSet.DataColumns.Close, DataSet.DataColumns.Open, 1, 1, true)  },
+            { DataItem.PrevHighOpenDif, new ChangeMap(DataSet.DataColumns.High, DataSet.DataColumns.Open, 1, 1, true)  },
+            { DataItem.PrevHighCloseDif, new ChangeMap(DataSet.DataColumns.High, DataSet.DataColumns.Close, 1, 1, true)  },
+            { DataItem.NegativeOpenChange, new ChangeMap(DataSet.DataColumns.Open, DataSet.DataColumns.Open, 0, 1, false)  },
+            { DataItem.NegativeCloseChange, new ChangeMap(DataSet.DataColumns.Close, DataSet.DataColumns.Close, 0, 1, false)  },
+            { DataItem.NegativeVolumeChange, new ChangeMap(DataSet.DataColumns.Volume, DataSet.DataColumns.Volume, 0, 1, false)  },
+            { DataItem.NegativeCloseOpenDif, new ChangeMap(DataSet.DataColumns.Close, DataSet.DataColumns.Open, 0, 0, false)  },
+            { DataItem.NegativeOpenPrevCloseDif, new ChangeMap(DataSet.DataColumns.Open, DataSet.DataColumns.Close, 0, 1, false)  },
+            { DataItem.NegativePrevCloseOpenDif, new ChangeMap(DataSet.DataColumns.Close, DataSet.DataColumns.Open, 1, 1, false)  },
+            { DataItem.NegativePrevLowOpenDif, new ChangeMap(DataSet.DataColumns.Low, DataSet.DataColumns.Open, 1, 1, false)  },
+            { DataItem.NegativePrevLowCloseDif, new ChangeMap(DataSet.DataColumns.Low, DataSet.DataColumns.Close, 1, 1, false)  },
         };
     }
 }

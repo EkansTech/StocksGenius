@@ -23,7 +23,15 @@ namespace StocksGenius
 
     public class Investment
     {
+        #region Members
+
+        private static int m_IDs = 0;
+
+        #endregion
+
         #region Properties
+
+        public int ID { get; private set; }
 
         public DataSet DataSet { get; set; }
 
@@ -59,6 +67,7 @@ namespace StocksGenius
 
         public Investment(Analyze analyze, DateTime date, double investmentPrice, double accountBefore, int ammount, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
         {
+            ID = m_IDs++;
             DataSet = analyze.DataSet;
             PredictedChange = analyze.PredictedChange;
             InvestmentDate = date;

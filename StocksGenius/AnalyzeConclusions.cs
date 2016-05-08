@@ -33,6 +33,13 @@ namespace StocksGenius
 
         #region Constructors
 
+        public Analyze()
+        {
+            AverageCorrectness = 0;
+            DataSet = null;
+            NumOfPredictions = 0;
+        }
+
         public Analyze(PredictionRecord record)
         {
             AverageCorrectness = record.PredictionCorrectness;

@@ -11,12 +11,12 @@ namespace StocksData
     {
         #region Properties
 
-        private List<string> m_DataSets;
+        private List<string> m_DataSetsCodes;
 
-        public List<string> DataSets
+        public List<string> DataSetsCodes
         {
-            get { return m_DataSets; }
-            set { m_DataSets = value; }
+            get { return m_DataSetsCodes; }
+            set { m_DataSetsCodes = value; }
         }
 
         private Dictionary<string, string> m_DataSetPaths = new Dictionary<string, string>();
@@ -27,6 +27,14 @@ namespace StocksData
             set { m_DataSetPaths = value; }
         }
 
+        private Dictionary<string, string> m_PriceDataSetPaths = new Dictionary<string, string>();
+
+        public Dictionary<string, string> PriceDataSetPaths
+        {
+            get { return m_PriceDataSetPaths; }
+            set { m_PriceDataSetPaths = value; }
+        }
+
         private Dictionary<string, string> m_DataPredictionsPaths = new Dictionary<string, string>();
 
         public Dictionary<string, string> DataPredictionsPaths
@@ -35,11 +43,27 @@ namespace StocksData
             set { m_DataPredictionsPaths = value; }
         }
 
+        private Dictionary<string, DataSet> m_DataSets = new Dictionary<string, DataSet>();
+
+        public Dictionary<string, DataSet> DataSets
+        {
+            get { return m_DataSets; }
+            set { m_DataSets = value; }
+        }
+
+        private Dictionary<string, DataSet> m_PriceDataSets = new Dictionary<string, DataSet>();
+
+        public Dictionary<string, DataSet> PriceDataSets
+        {
+            get { return m_PriceDataSets; }
+            set { m_PriceDataSets = value; }
+        }
+
         private Dictionary<string, DataPredictions> m_DataPredictions = new Dictionary<string, DataPredictions>();
 
         public Dictionary<string, DataPredictions> DataPredictions
         {
-            get { return m_DataPredictions; }
+            get { if (m_DataPredictions.Count == 0) { LoadPredictions(DSSettings.MinimumRelevantPredictionResult); }  return m_DataPredictions; }
             set { m_DataPredictions= value; }
         }
 
@@ -57,11 +81,12 @@ namespace StocksData
             DataSource = (dataSource == null) ? new QuandlDataSource() : dataSource;
             WorkingDirectory = workingDirectory;
 
-            m_DataSets = DataSource.GetDataSetsList(workingDirectory);
+            m_DataSetsCodes = DataSource.GetDataSetsList(workingDirectory);
 
-            foreach (string dataSet in m_DataSets)
+            foreach (string dataSet in m_DataSetsCodes)
             {
                 m_DataSetPaths.Add(dataSet, workingDirectory + DSSettings.DataSetsDir + dataSet + ".csv");
+                m_PriceDataSetPaths.Add(dataSet, workingDirectory + DSSettings.PriceDataSetsDirectory + dataSet + ".csv");
                 m_DataPredictionsPaths.Add(dataSet, workingDirectory + DSSettings.PredictionDir + dataSet + DSSettings.PredictionSuffix + ".csv");
             }
         }
@@ -73,7 +98,7 @@ namespace StocksData
         public List<PredictionRecord> LoadPredictions(double effectivePredictionResult)
         {
             List<PredictionRecord> predictionRecords = new List<PredictionRecord>();
-            foreach (string dataSetName in m_DataSets)
+            foreach (string dataSetName in m_DataSetsCodes)
             {
                 DataPredictions dataPredictions = new DataPredictions(m_DataSetPaths[dataSetName], m_DataPredictionsPaths[dataSetName]);
                 if (!m_DataPredictions.ContainsKey(dataSetName))
@@ -99,7 +124,7 @@ namespace StocksData
 
             double loadTime = 0;
             double gpuTime = 0;
-            foreach (string dataSetName in m_DataSets)
+            foreach (string dataSetName in m_DataSetsCodes)
             {
                 //if (datasetNumber > 0)
                 //{
@@ -111,7 +136,7 @@ namespace StocksData
                 //Console.Write(new string(' ', Console.WindowWidth));
                 //Console.SetCursorPosition(0, Console.CursorTop - 1);
                 Console.WriteLine("Current Stock: {0}", dataSetName);
-                Console.WriteLine("Completed {0}%", (((double)dataSetNumber) / (double)m_DataSets.Count * 100.0).ToString("0.00"));
+                Console.WriteLine("Completed {0}%", (((double)dataSetNumber) / (double)m_DataSetsCodes.Count * 100.0).ToString("0.00"));
 
 
                 DataSet dataSet = new DataSet(m_DataSetPaths[dataSetName]);
@@ -190,6 +215,47 @@ namespace StocksData
             }
 
             return stocksList;
+        }
+
+        public void LoadDataSets()
+        {
+            foreach (string dataSetName in m_DataSetsCodes)
+            {
+                if (!m_DataSets.ContainsKey(dataSetName))
+                {
+                    m_DataSets.Add(dataSetName, new DataSet(m_DataSetPaths[dataSetName]));
+                }
+                if (!m_PriceDataSets.ContainsKey(dataSetName))
+                {
+                    m_PriceDataSets.Add(dataSetName, new DataSet(m_PriceDataSetPaths[dataSetName]));
+                }
+            }
+        }
+
+        public void MoveToDate(int dayNum)
+        {
+            foreach(string dataSetName in DataSets.Keys)
+            {
+                DataSets[dataSetName].DeleteRows(dayNum);
+                DataSets[dataSetName].CleanTodayData();
+                PriceDataSets[dataSetName].DeleteRows(dayNum);
+                PriceDataSets[dataSetName].CleanTodayData();
+            }
+        }
+
+        public bool AreDataSetsSynchronized()
+        {
+            DateTime date = DataSets.Values.First().GetDate(0);
+
+            foreach (string dataSetName in DataSets.Keys)
+            {
+               if (!DataSets[dataSetName].GetDate(0).Equals(date) || !PriceDataSets[dataSetName].GetDate(0).Equals(date))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         #endregion

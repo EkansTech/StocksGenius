@@ -17,6 +17,8 @@ namespace StocksSimulation
 
         private double m_MinTotalProfit = 0.0;
 
+        private int m_TotalNumOfInvestments = 0;
+
         InvestmentAnalyzis m_InvestmentAnalyzis;
 
         private int m_SimulationRun = 0;
@@ -31,11 +33,20 @@ namespace StocksSimulation
 
         public double AccountBallance { get; set; }
 
-        public double TotalProfit { get; set; }
+        private double m_TotalProfit;
 
-        public List<Investment> Investments { get; set; }
+        public double TotalProfit
+        {
+            get { return m_TotalProfit; }
+            set { m_TotalProfit = value; }
+        }
 
-        public List<Investment> InvestmentsToRemove { get; set; }
+        public Dictionary<string, double> StocksTotalProfit { get; set; }
+
+
+        internal List<Investment> Investments { get; set; }
+
+        internal List<Investment> InvestmentsToRemove { get; set; }
 
         static public string WorkingDirectory { get; set; }
 
@@ -51,10 +62,11 @@ namespace StocksSimulation
         {
             WorkingDirectory = workingDirectory;
             string dataSetsFolder = workingDirectory + DSSettings.DataSetsDir;
-            string priceDataSetsFolder = workingDirectory + SimSettings.PriceDataSetsDirectory;
+            string priceDataSetsFolder = workingDirectory + DSSettings.PriceDataSetsDirectory;
             DataSets = new Dictionary<string, DataSet>();
             PriceDataSets = new Dictionary<string, DataSet>();
-            m_InvestmentAnalyzis = new InvestmentAnalyzis(workingDirectory);
+            m_InvestmentAnalyzis = new InvestmentAnalyzis(workingDirectory, 0);
+            StocksTotalProfit = new Dictionary<string, double>();
 
             foreach (string stockFile in stocksFiles)
             {
@@ -63,6 +75,7 @@ namespace StocksSimulation
 
                 DataSet priceDataSet = new DataSet(priceDataSetsFolder + stockFile, TestDataAction.LoadOnlyTestData);
                 PriceDataSets.Add(priceDataSet.DataSetName, priceDataSet);
+                StocksTotalProfit.Add(dataSet.DataSetName, 0.0);
             }
 
             Investments = new List<Investment>();
@@ -79,6 +92,7 @@ namespace StocksSimulation
         {
             m_MaxTotalProfit = 0.0;
             m_MinTotalProfit = 0.0;
+            m_TotalNumOfInvestments = 0;
             Log.AddMessage("Simulating, Investment money: {0}", AccountBallance);
 
             m_MaxTotalProfit = 0.0;
@@ -87,6 +101,12 @@ namespace StocksSimulation
             TotalProfit = 0.0;
 
             SimRecorder simRecorder = new SimRecorder(m_SimulationRun);
+
+            foreach (string dataSetName in StocksTotalProfit.Keys)
+            {
+                StocksTotalProfit[dataSetName] = 0.0;
+            }
+
             for (int dataSetRow = DSSettings.TestRange; dataSetRow >= 0; dataSetRow--)
             {
                 m_SimulationDate = new DateTime((long)DataSets.Values.First().GetDayData(dataSetRow)[0]);
@@ -96,7 +116,7 @@ namespace StocksSimulation
             }
             m_SimulationRun++;
             m_InvestmentAnalyzis.SimulationRun++;
-            simRecorder.SaveToFile("Stock", WorkingDirectory + SimSettings.SimulationRecordsDirectory, m_MaxTotalProfit, m_MinTotalProfit);
+            simRecorder.SaveToFile("Stock", WorkingDirectory + SimSettings.SimulationRecordsDirectory, m_MaxTotalProfit, m_MinTotalProfit, m_TotalNumOfInvestments);
 
             m_InvestmentAnalyzis.SaveToFileNoPredictions();
 
@@ -144,7 +164,7 @@ namespace StocksSimulation
         {
             foreach (Investment investment in Investments)
             {
-                investment.UpdateInvestment(dataSetRow, TotalProfit);
+                investment.UpdateInvestment(dataSetRow, TotalProfit, StocksTotalProfit[investment.DataSet.DataSetName]);
 
                 if (investment.IsEndOfInvestment)
                 {
@@ -178,14 +198,14 @@ namespace StocksSimulation
                 m_MinTotalProfit = TotalProfit;
             }
 
-            TotalProfit = investment.Release(day, TotalProfit);
+            StocksTotalProfit[investment.DataSet.DataSetName] = investment.Release(day, ref m_TotalProfit, StocksTotalProfit[investment.DataSet.DataSetName]);
             Log.AddMessage("Release investment of {0}:", investment.DataSet.DataSetName);
             Log.AddMessage("AccountBalance {0}, release profit {1}, total profit {2}", AccountBallance.ToString("0.00"), investment.GetProfit(day).ToString("0.00"), TotalProfit.ToString("0.00"));
         }
 
         private void AddInvestment(int day, DataSet dataSet, BuySell buySell)
         {
-            Investment investment = new Investment(dataSet, day, AccountBallance, TotalProfit, buySell);
+            Investment investment = new Investment(dataSet, day, AccountBallance, TotalProfit, StocksTotalProfit[dataSet.DataSetName], buySell);
             AccountBallance = investment.UpdateAccountOnInvestment(day, AccountBallance);
             if (TotalProfit > m_MaxTotalProfit)
             {
@@ -198,6 +218,7 @@ namespace StocksSimulation
             Log.AddMessage("New investment of {0}, num of investments {1}:", investment.DataSet.DataSetName, Investments.Count + 1);
             Log.AddMessage("Account balance {0}, {1} {2} shares, price {3}", AccountBallance, (investment.InvestmentType == BuySell.Buy) ? "bought" : "sold", investment.Ammount, investment.InvestedPrice);
             Investments.Add(investment);
+            m_TotalNumOfInvestments++;
         }
 
         private void CreateNewInvestments(int day)

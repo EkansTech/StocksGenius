@@ -63,7 +63,7 @@ namespace StocksGenius
 
         public void Simulate()
         {
-            AnalyzerSimulator analyzerSimulator = new AnalyzerSimulator(m_StocksData.DataSetPaths.Values.Select(x => Path.GetFileName(x)).ToList(), SGSettings.WorkingDirectory);
+            PredictionsSimulator analyzerSimulator = new PredictionsSimulator(m_StocksData.DataSetPaths.Values.Select(x => Path.GetFileName(x)).ToList(), SGSettings.WorkingDirectory);
             //analyzerSimulator.TestAnalyzeResults(stocksDataPath + iForexTestAnalyzerFolder);
             //Log.ConnectToConsole = false;
             analyzerSimulator.Simulate();
@@ -71,21 +71,7 @@ namespace StocksGenius
             //Console.Write(Log.ToString());
             Log.SaveLogToFile(SGSettings.WorkingDirectory + "AnalyzeSimulator.log");
 
-            List<SimRecorder> recorders = new List<SimRecorder>();
-            foreach (string filePath in Directory.GetFiles(SGSettings.WorkingDirectory + SimSettings.SimulationRecordsDirectory))
-            {
-                recorders.Add(new SimRecorder(filePath));
-            }
-
-            using (StreamWriter writer = new StreamWriter(string.Format("{0}\\iForexSimSummary{1}.csv", SGSettings.WorkingDirectory, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
-            {
-                writer.WriteLine("SimulationRun,MinPredictedRange,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio,MinTotalProfit,MaxTotalProfit,Final Profit");
-                foreach (SimRecorder recorder in recorders)
-                {
-                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}", recorder.SimulationRun, recorder.MinPredictedRange, recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio, 
-                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.MinTotalProfit, recorder.MaxTotalProfit, recorder.Last().AccountBalance);
-                }
-            }
+            SimRecorder.SaveSummary(SGSettings.WorkingDirectory);
 
             return;
         }
@@ -106,17 +92,29 @@ namespace StocksGenius
                 recorders.Add(new SimRecorder(filePath));
             }
 
-            using (StreamWriter writer = new StreamWriter(string.Format("{0}\\StocksSimSummary{1}.csv", SGSettings.WorkingDirectory, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
+            using (StreamWriter writer = new StreamWriter(string.Format("{0}\\iForexSimSummary{1}.csv", SGSettings.WorkingDirectory, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
             {
-                writer.WriteLine("SimulationRun,MinPredictedRange,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio,MinTotalProfit,MaxTotalProfit,Final Profit");
+                writer.WriteLine("SimulationRun,MinPredictedRange,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio"
+                    + ",MinTotalProfit,MaxTotalProfit,TotalNumOfInvestments,Final Profit");
                 foreach (SimRecorder recorder in recorders)
                 {
-                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}", recorder.SimulationRun, recorder.MinPredictedRange, recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio,
-                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.MinTotalProfit, recorder.MaxTotalProfit, recorder.Last().AccountBalance);
+                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}", recorder.SimulationRun, recorder.MinPredictedRange, recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio,
+                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio, recorder.MinTotalProfit, recorder.TotalNumOfInvestments, recorder.MaxTotalProfit, recorder.Last().AccountBalance);
                 }
             }
 
             return;
+        }
+
+        public void AnalyzePredictions()
+        {
+            PredictionsAnalyze.AnalyzePredictions(SGSettings.WorkingDirectory, m_StocksData.DataPredictionsPaths);
+        }
+
+        public void RunInvestor()
+        {
+            Investor investor = new Investor(m_StocksData);
+            investor.RunInvestor();
         }
 
         #endregion

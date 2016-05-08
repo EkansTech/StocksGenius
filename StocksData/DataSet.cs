@@ -78,6 +78,34 @@ namespace StocksData
 
         #region Interface
 
+        public DateTime GetDate(int rowNum)
+        {
+            return new DateTime((long)GetData(rowNum, DataColumns.Date));
+        }
+
+        public int GetDayNum(DateTime date)
+        {
+            for (int i = 0; i < NumOfRows; i++)
+            {
+                if (GetDate(i).Equals(date))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        public List<double> GetDayData()
+        {
+            return GetDayData(0);
+        }
+
+        public List<double> GetDayData(DateTime day)
+        {
+            return GetDayData(GetDayNum(day));
+        }
+
         public List<double> GetDayData(int rowNumber)
         {
             return GetRange(rowNumber * (int)DataColumns.NumOfColumns, (int)DataColumns.NumOfColumns);
@@ -135,7 +163,7 @@ namespace StocksData
         {
             string[] data = dataLine.Split(',');
 
-            Add(Convert.ToDateTime(data[0]).Ticks);
+            Add(Convert.ToDateTime(data[0]).Date.Ticks);
             
             for (int i = 1; i < (int)DataColumns.NumOfColumns; i++)
             {
@@ -153,6 +181,22 @@ namespace StocksData
         public override string ToString()
         {
             return DataSetName;
+        }
+
+        internal void DeleteRows(int dayNum)
+        {
+            RemoveRange(0, dayNum * (int)DataColumns.NumOfColumns);
+        }
+
+        internal void CleanTodayData()
+        {
+            for (int i = 0; i < (int)DataColumns.NumOfColumns; i++)
+            {
+                if (i != (int)DataColumns.Date && i != (int)DataColumns.Open)
+                {
+                    this[i] = 0.0;
+                }
+            }
         }
 
         #endregion

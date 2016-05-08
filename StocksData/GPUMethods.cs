@@ -129,7 +129,6 @@ namespace StocksData
             using (var dCombinations = GPUWorker.Malloc(combinations))
             {
                 int numOfThreadsInBlock = 1024;
-                int blockY = 1;// m_PredictionsNum;
                 int blockX = numOfThreadsInBlock;// / blockY;
                 int gridX = combinationsNum / blockX + 1;
                 var block = new dim3(blockX);//, blockY);
@@ -169,6 +168,7 @@ namespace StocksData
             var dataRow = blockIdx.x * blockDim.x + threadIdx.x;
 
             deviceptr<byte> currentChanges = changes.Ptr(dataRow * m_ChangesNum);
+            deviceptr<double> currentDataSet = dataSet.Ptr(dataRow * m_DataSetWidth);
 
             for (int changeNum = 0; changeNum < m_ChangesNum; changeNum++)
             {
@@ -177,11 +177,11 @@ namespace StocksData
                 int fromRowOffset = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 2];
                 int ofRowOffset = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 3];
                 int isPositiveChange = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 4];
+                int offset = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 5];
                 int range = changesRanges[changeNum];
-                deviceptr<double> currentDataSet = dataSet.Ptr((dataRow + range) * m_DataSetWidth);
 
-                currentChanges[changeNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
-                        (byte)0 : IsPrediction(currentDataSet, range, columnFrom, columnOf, fromRowOffset, ofRowOffset, isPositiveChange, m_ErrorRange, -m_ErrorRange);
+                currentChanges[changeNum] = (dataRow >= m_DataSetNumOfRows - range * 2) ?
+                        (byte)0 : IsChange(currentDataSet, range, columnFrom, columnOf, fromRowOffset, ofRowOffset, isPositiveChange, m_ErrorRange, -m_ErrorRange, offset);
 
             }
         }
@@ -202,7 +202,7 @@ namespace StocksData
                 int isPositiveChange = dataItemsMap[predictionsDataItems[predictionNum] * m_MapLength + 4];
                 int range = predictionsRanges[predictionNum];
 
-                currentPredictions[predictionNum] = (dataRow >= m_DataSetNumOfRows - range * 3) ?
+                currentPredictions[predictionNum] = (dataRow < range) ?
                     (byte)0 : IsPrediction(currentDataSet, range, columnFrom, columnOf, fromRowOffset, ofRowOffset, isPositiveChange, m_ErrorRange, -m_ErrorRange);
             }
         }
@@ -279,11 +279,30 @@ namespace StocksData
             }
         }
 
-        private byte IsPrediction(deviceptr<double> dataSet, int range, int dataColumFrom, int dataColumOf, 
-            int fromRowOffset, int ofRowOffset, int isPositiveChange, double biggerErrorBorder, double smallerErrorBorder)
+        private byte IsPrediction(deviceptr<double> dataSet, int range, int dataColumFrom, int dataColumOf, int fromRowOffset, int ofRowOffset, int isPositiveChange, 
+            double biggerErrorBorder, double smallerErrorBorder)
         {
             int ofRow = ofRowOffset * range;
-            int fromRow = fromRowOffset * range;
+            int fromRow = fromRowOffset * range - range;
+            double sumOf = 0;
+            double sumFrom = 0;
+            for (int i = 0; i < range; i++)
+            {
+                sumOf += dataSet[(ofRow + i) * m_DataSetWidth + dataColumOf];
+                sumFrom += dataSet[(fromRow + i) * m_DataSetWidth + dataColumFrom];
+            }
+
+            return (byte)((isPositiveChange == 1) ?
+                (((sumFrom - sumOf) / sumOf / range) > biggerErrorBorder) ? 1 : 0
+                :
+                (((sumFrom - sumOf) / sumOf / range) < smallerErrorBorder) ? 1 : 0);
+        }
+
+        private byte IsChange(deviceptr<double> dataSet, int range, int dataColumFrom, int dataColumOf,
+            int fromRowOffset, int ofRowOffset, int isPositiveChange, double biggerErrorBorder, double smallerErrorBorder, int offset)
+        {
+            int ofRow = ofRowOffset * range + offset;
+            int fromRow = fromRowOffset * range + offset;
             double sumOf = 0;
             double sumFrom = 0;
             for (int i = 0; i < range; i++)
@@ -309,6 +328,7 @@ namespace StocksData
                 dataItemsMap[i * m_MapLength + 2] = DSSettings.DataItemsCalculationMap[DSSettings.DataItems[i]].FromOffset;
                 dataItemsMap[i * m_MapLength + 3] = DSSettings.DataItemsCalculationMap[DSSettings.DataItems[i]].OfOffset;
                 dataItemsMap[i * m_MapLength + 4] = DSSettings.DataItemsCalculationMap[DSSettings.DataItems[i]].IsPositiveChange ? 1 : 0;
+                dataItemsMap[i * m_MapLength + 5] = DSSettings.DataItemsCalculationMap[DSSettings.DataItems[i]].Offset;
             }
 
             return dataItemsMap;

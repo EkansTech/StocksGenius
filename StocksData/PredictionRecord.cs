@@ -21,6 +21,8 @@ namespace StocksData
 
         public DataSet DataSet { get; set; }
 
+        public DataPredictions DataPredictions { get; set; }
+
         #endregion
 
         #region Constructor

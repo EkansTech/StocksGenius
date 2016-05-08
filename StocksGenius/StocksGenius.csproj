@@ -49,8 +49,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AnalyzeConclusions.cs" />
+    <Compile Include="Definitions.cs" />
+    <Compile Include="IniFile.cs" />
     <Compile Include="Investment.cs" />
     <Compile Include="Investments.cs" />
+    <Compile Include="Investor.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SGSettings.cs" />
@@ -70,7 +73,7 @@
       <Name>StocksData</Name>
     </ProjectReference>
     <ProjectReference Include="..\StocksSimulation\StocksSimulation.csproj">
-      <Project>{811895CF-36F7-4C58-B370-CD9477ACB8C1}</Project>
+      <Project>{811895cf-36f7-4c58-b370-cd9477acb8c1}</Project>
       <Name>StocksSimulation</Name>
     </ProjectReference>
   </ItemGroup>

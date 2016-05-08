@@ -217,7 +217,7 @@ namespace StocksSimulation
         #endregion
     }
 
-    public class AnalyzesSummary : Dictionary<int, Dictionary<int, DailyAnalyzes>>
+    public class AnalyzesSummary : Dictionary<int, DailyAnalyzes>
     {
         #region Properties
 
@@ -229,14 +229,27 @@ namespace StocksSimulation
             set { m_FileName = value; }
         }
 
+        private string m_DirectoryName = "\\AnalyzesSummary\\";
+
+        public string DirectoryName
+        {
+            get { return m_DirectoryName; }
+            set { m_DirectoryName = value; }
+        }
+
+        public static string SubDirectory { get; set; }
+
         public string WorkingDirectory { get; set; }
+
+        public int SimulationRun { get; set; }
 
         #endregion
 
         #region Constructors
 
-        public AnalyzesSummary(string workingDirectory)
+        public AnalyzesSummary(string workingDirectory, int simulationRun)
         {
+            SimulationRun = simulationRun;
             WorkingDirectory = workingDirectory;
         }
 
@@ -246,39 +259,41 @@ namespace StocksSimulation
 
         public void Add(int simulationRun, int day, DailyAnalyzes dailyAnalyzes)
         {
-            if (!ContainsKey(simulationRun))
-            {
-                Add(simulationRun, new Dictionary<int, DailyAnalyzes>());
-            }
-
-            this[simulationRun].Add(day, dailyAnalyzes);
+            this.Add(day, dailyAnalyzes);
         }
 
         public void SaveToFile()
         {
-            string filePath = string.Format("{0}\\{1}_{2}.csv", WorkingDirectory, FileName, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'));
+            if (!Directory.Exists(WorkingDirectory + m_DirectoryName))
+            {
+                Directory.CreateDirectory(WorkingDirectory + m_DirectoryName);
+            }
+
+            if (SimulationRun == 0)
+            {
+                SubDirectory = WorkingDirectory + m_DirectoryName + DateTime.Now.ToString().Replace(':', '_').Replace('/', '_') + "\\";
+                Directory.CreateDirectory(SubDirectory);
+            }
+
+            string filePath = string.Format("{0}\\{1}_{2}.csv", SubDirectory, FileName, SimulationRun);
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {
                 writer.WriteLine("SimulationRun,SimulationDay,DataSet,DataItem,Range,AverageCorrectness,NumOfPredictions");
-                foreach (int simulationRun in Keys)
-                {
-                    foreach (int day in this[simulationRun].Keys)
+                 foreach (int day in this.Keys)
                     {
-                        foreach (DataSet dataSet in this[simulationRun][day].Keys.OrderBy(x => x.DataSetName))
+                    foreach (DataSet dataSet in this[day].Keys.OrderBy(x => x.DataSetName))
+                    {
+                        foreach (CombinationItem combinationItem in this[day][dataSet].Keys.OrderBy(x => x.Range))
                         {
-                            foreach (CombinationItem combinationItem in this[simulationRun][day][dataSet].Keys.OrderBy(x => x.Range))
-                            {
-                                Analyze analyze = this[simulationRun][day][dataSet][combinationItem];
-                                writer.WriteLine("{0},{1},{2},{3},{4},{5},{6}",
-                                    simulationRun,
-                                    day,
-                                    dataSet.DataSetName,
-                                    combinationItem.DataItem,
-                                    combinationItem.Range,
-                                    analyze.AverageCorrectness,
-                                    analyze.NumOfPredictions);
-                            }
+                            Analyze analyze = this[day][dataSet][combinationItem];
+                            writer.WriteLine("{0},{1},{2},{3},{4},{5}",
+                                day,
+                                dataSet.DataSetName,
+                                combinationItem.DataItem,
+                                combinationItem.Range,
+                                analyze.AverageCorrectness,
+                                analyze.NumOfPredictions);
                         }
                     }
                 }

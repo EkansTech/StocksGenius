@@ -71,6 +71,13 @@ namespace StocksData
             PredictionDataSetName = dataPredictions.PredictionDataSetName;
         }
 
+        public DataPredictions(string dataPredictionFilePath)
+        {
+            LoadFromFile(dataPredictionFilePath);
+            m_PredictionDataSetName = Path.GetFileNameWithoutExtension(dataPredictionFilePath);
+            // CaclulatePredictions();
+        }
+
         public DataPredictions(string dataSetFilePath, string dataPredictionFilePath)
         {
             DataSet = new DataSet(dataSetFilePath);
@@ -233,6 +240,7 @@ namespace StocksData
                             PredictionCorrectness = this[combination][dataColumn],
                             PredictedChange = DSSettings.PredictionItems[dataColumn],
                             DataSet = DataSet,
+                            DataPredictions = this,
                         });
                     }
                 }
@@ -368,7 +376,7 @@ namespace StocksData
         {
             ChangeMap changeMap = DSSettings.DataItemsCalculationMap[combinationItem.DataItem];
 
-            double change = CalculateChange(dataRow, combinationItem.Range, changeMap.FromData, changeMap.OfData, changeMap.FromOffset, changeMap.OfOffset);
+            double change = CalculateChange(dataRow, combinationItem.Range, changeMap.FromData, changeMap.OfData, changeMap.FromOffset, changeMap.OfOffset, changeMap.Offset);
 
             if ((changeMap.IsPositiveChange && change > upperErrorBorder) || (!changeMap.IsPositiveChange && change < lowerErrorBorder))
             {
@@ -399,10 +407,10 @@ namespace StocksData
             return false;
         }
 
-        private double CalculateChange(int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, int fromRowOffset, int ofRowOffset)
+        private double CalculateChange(int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, int fromRowOffset, int ofRowOffset, int offset)
         {
-            int dataFromStartPosition = fromRowOffset * range;
-            int dataOfStartPosition = ofRowOffset * range;
+            int dataFromStartPosition = fromRowOffset * range + offset;
+            int dataOfStartPosition = ofRowOffset * range + offset;
             double sumOf = 0;
             double sumFrom = 0;
             for (int i = dataRow; i < dataRow + range; i++)
@@ -557,7 +565,7 @@ namespace StocksData
 
             for (byte i = startPosition; i < DSSettings.ChangeItems.Count - (combinationSize - combinationPart - 1); i++)
             {
-                if (i % 2 == 1 && currentCombinationItems.Contains((byte)(i - 1)))
+                if (i % 2 == 1 && currentCombinationItems.Contains((byte)(i - 1)) && i != 9 && i != 11)
                 {
                     continue;
                 }

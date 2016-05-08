@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace StocksSimulation
+namespace StocksGenius
 {
     public enum BuySell
     {
@@ -33,5 +33,11 @@ namespace StocksSimulation
         BadLoose,
         EndOfTrade,
         MaxInvestmentLive,
+    }
+
+    public enum InvestmentStatus
+    {
+        Active,
+        Released,
     }
 }

@@ -76,13 +76,16 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CombinationItemAnalyze.cs" />
     <Compile Include="DSSettings.cs" />
+    <Compile Include="PredictedItemsAnalyze.cs" />
     <Compile Include="PredictionRecord.cs" />
     <Compile Include="BloombergDataSource.cs" />
     <Compile Include="CombinationItem.cs" />
     <Compile Include="DataPredictions.cs" />
     <Compile Include="Definitions.cs" />
     <Compile Include="GPUMethods.cs" />
+    <Compile Include="PredictionsAnalyze.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QuandlDataSource.cs" />

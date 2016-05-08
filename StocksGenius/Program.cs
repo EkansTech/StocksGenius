@@ -26,6 +26,8 @@ namespace StocksGenius
                 Console.WriteLine("3. Get Actions");
                 Console.WriteLine("4. Simulate");
                 Console.WriteLine("5. Simulate Model");
+                Console.WriteLine("6. Analyze Predictions");
+                Console.WriteLine("7. Run Investor");
                 Console.WriteLine("0. To Exit");
 
                 string input = Console.ReadLine();
@@ -37,6 +39,8 @@ namespace StocksGenius
                     case "3": stockGenius.GetActions(); break;
                     case "4": stockGenius.Simulate(); break;
                     case "5": stockGenius.SimulateModel(); break;
+                    case "6": stockGenius.AnalyzePredictions(); break;
+                    case "7": stockGenius.RunInvestor(); break;
                     case "0": exit = true; break;
                     default:
                         break;

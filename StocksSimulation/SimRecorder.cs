@@ -58,6 +58,14 @@ namespace StocksSimulation
 
         public double MaxTotalProfit { get; set; }
 
+        public int TotalNumOfInvestments { get; set; }
+
+        public double PredictionErrorRange { get; set; }
+
+        public int MinCombinationItemsNum { get; set; }
+
+        public int MaxCombinationItemsNum { get; set; }
+
         #endregion
 
         #region Constructors
@@ -72,6 +80,12 @@ namespace StocksSimulation
             MinPredictedRange = 0;
             MaxPredictedRange = 0;
             SimulationRun = simulationRun;
+            TotalNumOfInvestments = 0;
+            MaxTotalProfit = 0;
+            MinTotalProfit = 0;
+            PredictionErrorRange = 0;
+            MinCombinationItemsNum = 0;
+            MaxCombinationItemsNum = 0;
         }
 
         public SimRecorder(string filePath)
@@ -88,11 +102,16 @@ namespace StocksSimulation
             MaxNumOfInvestments = Convert.ToInt32(fileProperties[9]);
             MinTotalProfit = Convert.ToDouble(fileProperties[10]);
             MaxTotalProfit = Convert.ToDouble(fileProperties[11]);
+            TotalNumOfInvestments = Convert.ToInt32(fileProperties[12]);
+            PredictionErrorRange = Convert.ToDouble(fileProperties[13]);
+            MinCombinationItemsNum = Convert.ToInt32(fileProperties[14]);
+            MaxCombinationItemsNum = Convert.ToInt32(fileProperties[15]);
 
             LoadFromFile(filePath);
         }
 
-        public SimRecorder(double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, int maxNumOfInvestments, double maxLooseRatio, byte minPredictedRange, byte maxPredictedRange, int simulationRun)
+        public SimRecorder(double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, int maxNumOfInvestments, double maxLooseRatio, byte minPredictedRange, 
+            byte maxPredictedRange, int simulationRun, double predictionErrorRange, int minCombinationItemsNum, int maxCombinationItemsNum)
         {
             EffectivePredictionResult = effectivePredictionResult;
             MinProfitRatio = minProfitRatio;
@@ -102,6 +121,9 @@ namespace StocksSimulation
             MinPredictedRange = minPredictedRange;
             MaxPredictedRange = maxPredictedRange;
             SimulationRun = simulationRun;
+            PredictionErrorRange = predictionErrorRange;
+            MinCombinationItemsNum = minCombinationItemsNum;
+            MaxCombinationItemsNum = maxCombinationItemsNum;
         }
 
         #endregion
@@ -113,7 +135,7 @@ namespace StocksSimulation
             Add(new SimRecord(dataSetRow, date, accountBalance, profit));
         }
 
-        public void SaveToFile(string name, string folderPath, double maxTotalProfit, double minTotalProfit)
+        public void SaveToFile(string name, string folderPath, double maxTotalProfit, double minTotalProfit, int totalNumOfInvestments)
         {
             if (SimulationRun == 0 && Directory.Exists(folderPath))
             {
@@ -122,8 +144,9 @@ namespace StocksSimulation
 
             Directory.CreateDirectory(folderPath);
 
-            string filePath = string.Format("{0}\\{1}_{2}_{3}_{4}_{5}_{6}_{7}_{8}_{9}_{10}_{11}_{12}.csv", folderPath, name, DateTime.Now.ToString().Replace(':', '-').Replace('/', '-'), SimulationRun,
-                MinPredictedRange, MaxPredictedRange, EffectivePredictionResult, MinProfitRatio, MaxLooseRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, minTotalProfit, maxTotalProfit);
+            string filePath = string.Format("{0}\\{1}_{2}_{3}_{4}_{5}_{6}_{7}_{8}_{9}_{10}_{11}_{12}_{13}_{14}_{15}_{16}.csv", folderPath, name, DateTime.Now.ToString().Replace(':', '-').Replace('/', '-'), SimulationRun,
+                MinPredictedRange, MaxPredictedRange, EffectivePredictionResult, MinProfitRatio, MaxLooseRatio, MaxInvestmentsPerStock, MaxNumOfInvestments, minTotalProfit, maxTotalProfit, totalNumOfInvestments,
+                PredictionErrorRange, MinCombinationItemsNum, MaxCombinationItemsNum);
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {
@@ -146,6 +169,29 @@ namespace StocksSimulation
                     string lineData = reader.ReadLine();
                     string[] data = lineData.Split(',');
                     Add(new SimRecord(Convert.ToInt32(data[0]), Convert.ToDateTime(data[1]), Convert.ToDouble(data[2]), Convert.ToDouble(data[3])));
+                }
+            }
+        }
+
+        public static void SaveSummary(string workingDirectory)
+        {
+            List<SimRecorder> recorders = new List<SimRecorder>();
+            foreach (string filePath in Directory.GetFiles(workingDirectory + SimSettings.SimulationRecordsDirectory))
+            {
+                recorders.Add(new SimRecorder(filePath));
+            }
+
+            using (StreamWriter writer = new StreamWriter(string.Format("{0}\\iForexSimSummary{1}.csv", workingDirectory, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
+            {
+                writer.WriteLine("SimulationRun,MinCombinationItemsNum,MaxCombinationItemsNum,PredictionErrorRange,MinPredictedRange,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio" +
+                    ",MaxInvestmentsPerStock,MaxNumOfInvestments,MaxLooseRatio,MinTotalProfit,MaxTotalProfit,TotalNumOfInvestments,Final Profit,ProfitPerInvestment");
+                foreach (SimRecorder recorder in recorders)
+                {
+                    double profitPerInvestment = (recorder.TotalNumOfInvestments == 0) ? 0 : (double)recorder.Last().AccountBalance / (double)recorder.TotalNumOfInvestments;
+                    writer.WriteLine("{0},{1},{2},{3}%,{4},{5},{6},{7}%,{8},{9},{10}%,{11},{12},{13},{14},{15}", recorder.SimulationRun, recorder.MinCombinationItemsNum, recorder.MaxCombinationItemsNum,
+                        recorder.PredictionErrorRange * 100, recorder.MinPredictedRange, recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio * 100,
+                        recorder.MaxInvestmentsPerStock, recorder.MaxNumOfInvestments, recorder.MaxLooseRatio * 100, recorder.MinTotalProfit, recorder.MaxTotalProfit, recorder.TotalNumOfInvestments,
+                        recorder.Last().AccountBalance, profitPerInvestment);
                 }
             }
         }

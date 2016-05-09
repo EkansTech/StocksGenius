@@ -78,6 +78,27 @@ namespace StocksData
 
         #region Interface
 
+        public new double this[int index]
+        {
+            get
+            {
+                switch (index)
+                {
+                    case (int)DataColumns.High: return base[index]; 
+                    case (int)DataColumns.Close: return base[index];
+                    case (int)DataColumns.Low: return base[index];
+                    case (int)DataColumns.Volume: return base[index];
+                    default:
+                        return base[index];
+                        
+                }
+            }
+            set
+            {
+                base[index] = value;
+            }
+        }
+
         public DateTime GetDate(int rowNum)
         {
             return new DateTime((long)GetData(rowNum, DataColumns.Date));

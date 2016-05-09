@@ -11,7 +11,9 @@ namespace StocksGenius
     {
         #region Properties
 
-        public DataSet DataSet { get; set; }
+        public string DataSetName { get; set; }
+
+        public StocksData.StocksData StocksData { get; set; }
 
         public int NumOfPredictions { get; set; }
 
@@ -36,14 +38,14 @@ namespace StocksGenius
         public Analyze()
         {
             AverageCorrectness = 0;
-            DataSet = null;
+            DataSetName = string.Empty;
             NumOfPredictions = 0;
         }
 
         public Analyze(PredictionRecord record)
         {
             AverageCorrectness = record.PredictionCorrectness;
-            DataSet = record.DataSet;
+            DataSetName = record.DataSet.DataSetName;
             NumOfPredictions = 1;
             PredictedChange = record.PredictedChange;
         }
@@ -65,7 +67,7 @@ namespace StocksGenius
     {
         #region Properties
 
-        public DataSet DataSet { get; set; }
+        public string DataSetName { get; set; }
 
         public bool ContainsPositiveInvestmens
         {
@@ -103,9 +105,9 @@ namespace StocksGenius
 
         #region Constructors
 
-        public DataSetAnalyzes(DataSet dataSet)
+        public DataSetAnalyzes(string dataSetName)
         {
-            DataSet = dataSet;
+            DataSetName = dataSetName;
         }
 
         #endregion
@@ -127,24 +129,24 @@ namespace StocksGenius
         #endregion
     }
 
-    public class DailyAnalyzes : Dictionary<DataSet, DataSetAnalyzes>
+    public class DailyAnalyzes : Dictionary<string, DataSetAnalyzes>
     {
         #region Interface
 
-        public void Add(DataSet dataSet, CombinationItem combinationItem, PredictionRecord record)
+        public void Add(string dataSetName, CombinationItem combinationItem, PredictionRecord record)
         {
-            if (!ContainsKey(dataSet))
+            if (!ContainsKey(dataSetName))
             {
-                Add(dataSet, new DataSetAnalyzes(dataSet));
+                Add(dataSetName, new DataSetAnalyzes(dataSetName));
             }
 
-            this[dataSet].Add(combinationItem, record);
+            this[dataSetName].Add(combinationItem, record);
         }
 
         public void RemoveBadAnalyzes()
         {
-            List<DataSet> emptyAnalyzes = new List<DataSet>();
-            foreach (DataSet dataSet in Keys)
+            List<string> emptyAnalyzes = new List<string>();
+            foreach (string dataSet in Keys)
             {
                 List<CombinationItem> badPredictions = new List<CombinationItem>();
                 foreach (CombinationItem combinationItem in this[dataSet].Keys)
@@ -172,7 +174,7 @@ namespace StocksGenius
                 }
             }
 
-            foreach (DataSet dataSet in emptyAnalyzes)
+            foreach (string dataSet in emptyAnalyzes)
             {
                 Remove(dataSet);
             }

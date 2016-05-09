@@ -44,7 +44,7 @@ namespace StocksGenius
                         investment.InvestmentDay,
                         investment.InvestmentType,
                         investment.InvestedPrice,
-                        investment.DataSet.DataSetName,
+                        investment.DataSetName,
                         investment.Ammount,
                         investment.PredictedChange.DataItem,
                         investment.PredictedChange.Range,
@@ -63,7 +63,7 @@ namespace StocksGenius
             }
         }
 
-        public void LoadFromFile(string fileName, Dictionary<string, DataSet> dataSets, Dictionary<string, DataSet> priceDataSets)
+        public void LoadFromFile(string fileName)
         {
             string filePath = string.Format("{0}\\{1}", SGSettings.WorkingDirectory, fileName);
 
@@ -85,15 +85,14 @@ namespace StocksGenius
                         PredictedChange = predictedChange,
                         AverageCorrectness = Convert.ToDouble(lineData[9]),
                         NumOfPredictions = Convert.ToInt32(lineData[8]),
-                        DataSet = dataSets[lineData[4]]
+                        DataSetName = lineData[4]
                     };
                     Investment investment = new Investment(Convert.ToInt32(lineData[0]))
                     {
                         InvestmentDay = Convert.ToDateTime(lineData[1]),
                         InvestmentType = (BuySell)Enum.Parse(typeof(BuySell), lineData[2], true),
                         InvestedPrice = Convert.ToDouble(lineData[3]),
-                        DataSet = dataSets[lineData[4]],
-                        PriceDataSet = priceDataSets[lineData[4]],
+                        DataSetName = lineData[4],
                         Ammount = Convert.ToInt32(lineData[5]),
                         PredictedChange = predictedChange,
                         Analyze = analyze,

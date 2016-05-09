@@ -111,6 +111,18 @@ namespace StocksData
             return predictionRecords;
         }
 
+        public void LoadDataPredictions()
+        {
+            foreach (string dataSetName in m_DataSetsCodes)
+            {
+                DataPredictions dataPredictions = new DataPredictions(m_DataSetPaths[dataSetName], m_DataPredictionsPaths[dataSetName]);
+                if (!m_DataPredictions.ContainsKey(dataSetName))
+                {
+                    m_DataPredictions.Add(dataSetName, dataPredictions);
+                }
+            }
+        }
+
 
         public void BuildDataPredictions()
         {
@@ -229,6 +241,35 @@ namespace StocksData
                 {
                     m_PriceDataSets.Add(dataSetName, new DataSet(m_PriceDataSetPaths[dataSetName]));
                 }
+            }
+        }
+
+        public void ReloadDataSets()
+        {
+            if (m_DataPredictions.Count == 0)
+            {
+                LoadDataPredictions();
+            }
+
+            foreach (string dataSetName in m_DataSetsCodes)
+            {
+                if (!m_DataSets.ContainsKey(dataSetName))
+                {
+                    m_DataSets.Add(dataSetName, new DataSet(m_DataSetPaths[dataSetName]));
+                }
+                else
+                {
+                    m_DataSets[dataSetName] = new DataSet(m_DataSetPaths[dataSetName]);
+                }
+                if (!m_PriceDataSets.ContainsKey(dataSetName))
+                {
+                    m_PriceDataSets.Add(dataSetName, new DataSet(m_PriceDataSetPaths[dataSetName]));
+                }
+                else
+                {
+                    m_PriceDataSets[dataSetName] = new DataSet(m_PriceDataSetPaths[dataSetName]);
+                }
+                m_DataPredictions[dataSetName].DataSet = m_DataSets[dataSetName];
             }
         }
 

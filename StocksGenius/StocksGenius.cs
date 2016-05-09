@@ -53,7 +53,7 @@ namespace StocksGenius
 
             foreach (DataSetAnalyzes dataSetAnalyze in dailyAnalyzes.Values)
             {
-                Console.WriteLine("DataSet {0}:", dataSetAnalyze.DataSet.DataSetName);
+                Console.WriteLine("DataSet {0}:", dataSetAnalyze.DataSetName);
                 foreach (Analyze analyze in dataSetAnalyze.Values.OrderBy(x => x.PredictedChange.Range))
                 {
                     Console.WriteLine("Analyzed prediction {0}, num of predictions {1}, average correctness {2}", analyze.PredictedChange.ToString(), analyze.NumOfPredictions, analyze.AverageCorrectness);
@@ -128,7 +128,7 @@ namespace StocksGenius
 
             foreach (PredictionRecord record in relevantPredictions)
             {
-                conclusions.Add(record.DataSet, record.PredictedChange, record);
+                conclusions.Add(record.DataSet.DataSetName, record.PredictedChange, record);
             }
 
             return conclusions;

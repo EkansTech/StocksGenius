@@ -56,7 +56,7 @@ namespace StocksData
             set { m_PredictionDataSetName = value; }
         }
 
-        public DataSet DataSet { get; private set; }
+        public DataSet DataSet { get; internal set; }
         public double GPULoadTime { get; internal set; }
 
         public int MinimumChangesForPrediction { get { return (int)(DataSet.NumOfRows * DSSettings.MinimumChangesForPredictionRatio); } }

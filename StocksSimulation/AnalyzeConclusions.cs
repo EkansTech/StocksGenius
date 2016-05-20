@@ -55,7 +55,7 @@ namespace StocksSimulation
         {
             AverageCorrectness = record.PredictionCorrectness;
             DataSet = record.DataSet;
-            DataSetName = DataSet.DataSetName;
+            DataSetName = DataSet.DataSetCode;
             NumOfPredictions = 1;
             PredictedChange = record.PredictedChange;
         }
@@ -64,7 +64,7 @@ namespace StocksSimulation
         {
             AverageCorrectness = records.Average(x => x.PredictionCorrectness);
             DataSet = records.First().DataSet;
-            DataSetName = DataSet.DataSetName;
+            DataSetName = DataSet.DataSetCode;
             NumOfPredictions = records.Count();
             PredictedChange = records.First().PredictedChange;
         }
@@ -217,7 +217,7 @@ namespace StocksSimulation
         #endregion
     }
 
-    public class AnalyzesSummary : Dictionary<int, DailyAnalyzes>
+    public class AnalyzesSummary : Dictionary<DateTime, DailyAnalyzes>
     {
         #region Properties
 
@@ -257,7 +257,7 @@ namespace StocksSimulation
 
         #region Interface
 
-        public void Add(int simulationRun, int day, DailyAnalyzes dailyAnalyzes)
+        public void Add(int simulationRun, DateTime day, DailyAnalyzes dailyAnalyzes)
         {
             this.Add(day, dailyAnalyzes);
         }
@@ -280,16 +280,16 @@ namespace StocksSimulation
             using (StreamWriter writer = new StreamWriter(filePath))
             {
                 writer.WriteLine("SimulationRun,SimulationDay,DataSet,DataItem,Range,AverageCorrectness,NumOfPredictions");
-                 foreach (int day in this.Keys)
+                 foreach (DateTime day in this.Keys)
                     {
-                    foreach (DataSet dataSet in this[day].Keys.OrderBy(x => x.DataSetName))
+                    foreach (DataSet dataSet in this[day].Keys.OrderBy(x => x.DataSetCode))
                     {
                         foreach (CombinationItem combinationItem in this[day][dataSet].Keys.OrderBy(x => x.Range))
                         {
                             Analyze analyze = this[day][dataSet][combinationItem];
                             writer.WriteLine("{0},{1},{2},{3},{4},{5}",
                                 day,
-                                dataSet.DataSetName,
+                                dataSet.DataSetCode,
                                 combinationItem.DataItem,
                                 combinationItem.Range,
                                 analyze.AverageCorrectness,

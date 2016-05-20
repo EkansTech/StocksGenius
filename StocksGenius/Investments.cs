@@ -22,7 +22,10 @@ namespace StocksGenius
 
         public Investments(Investments investments, InvestmentStatus status)
         {
-            AddRange(investments.Where(x => x.Status == status));
+            if (investments != null)
+            {
+                AddRange(investments.Where(x => x.Status == status));
+            }
         }
 
         #endregion
@@ -31,17 +34,17 @@ namespace StocksGenius
 
         public void SaveToFile(string fileName)
         {
-            string filePath = string.Format("{0}\\{1}", SGSettings.WorkingDirectory, fileName);
+            string filePath = string.Format("{0}\\{1}", SGSettings.Workspace, fileName);
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {
-                writer.WriteLine("ID,InvestmentDay,InvestmentType,InvestedPrice,DataSetName,Ammount,PredictedDataItem,PredictedRange,NumOfPredictions,AverageCorrectness,ReleaseDay,ReleasePrice"
-                     + "Profit,CurrentProfitPercentage,TotalProfit,StockTotalProfit,AccountBefore,InvestedMoney,ReleaseID,Status");
+                writer.WriteLine("ID,InvestmentDay,InvestmentType,InvestedPrice,DataSetName,Ammount,PredictedDataItem,PredictedRange,NumOfPredictions,AverageCorrectness,ReleaseDay,ReleasePrice,"
+                     + "Profit,InvestmentValue,TotalProfit,StockTotalProfit,AccountBefore,InvestedMoney,ReleaseID,Status");
                 foreach (Investment investment in this)
                 {
-                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18}",
+                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18},{19}",
                         investment.ID,
-                        investment.InvestmentDay,
+                        investment.InvestmentDay.ToShortDateString(),
                         investment.InvestmentType,
                         investment.InvestedPrice,
                         investment.DataSetName,
@@ -50,9 +53,10 @@ namespace StocksGenius
                         investment.PredictedChange.Range,
                         investment.Analyze.NumOfPredictions,
                         investment.Analyze.AverageCorrectness,
-                        investment.ReleaseDay,
+                        investment.ReleaseDay.ToShortDateString(),
                         investment.ReleasePrice,
                         investment.Profit,
+                        investment.InvestmentValue,
                         investment.TotalProfit,
                         investment.StockTotalProfit,
                         investment.AccountBefore,
@@ -65,7 +69,7 @@ namespace StocksGenius
 
         public void LoadFromFile(string fileName)
         {
-            string filePath = string.Format("{0}\\{1}", SGSettings.WorkingDirectory, fileName);
+            string filePath = string.Format("{0}\\{1}", SGSettings.Workspace, fileName);
 
             if (!File.Exists(filePath))
             {
@@ -98,19 +102,21 @@ namespace StocksGenius
                         Analyze = analyze,
                         ReleaseDay = Convert.ToDateTime(lineData[10]),
                         ReleasePrice = Convert.ToDouble(lineData[11]),
-                        Profit = Convert.ToDouble(lineData[12]),
-                        TotalProfit = Convert.ToDouble(lineData[13]),
-                        StockTotalProfit = Convert.ToDouble(lineData[14]),
-                        AccountBefore = Convert.ToDouble(lineData[15]),
-                        InvestedMoney = Convert.ToDouble(lineData[16]),
-                        ReleaseID = Convert.ToInt32(lineData[17]),
-                        Status = (InvestmentStatus)Enum.Parse(typeof(InvestmentStatus), lineData[18])
+                        TotalProfit = Convert.ToDouble(lineData[14]),
+                        StockTotalProfit = Convert.ToDouble(lineData[15]),
+                        AccountBefore = Convert.ToDouble(lineData[16]),
+                        InvestedMoney = Convert.ToDouble(lineData[17]),
+                        ReleaseID = Convert.ToInt32(lineData[18]),
+                        Status = (InvestmentStatus)Enum.Parse(typeof(InvestmentStatus), lineData[19])
                     };
 
                     Add(investment);
                 }
             }
-            Investment.Reset(this.Max(x => x.ID) + 1, this.Max(x => x.ReleaseID) + 1);
+            if (Count > 0)
+            {
+                Investment.Reset(this.Max(x => x.ID) + 1, this.Max(x => x.ReleaseID) + 1);
+            }
         }
 
         #endregion

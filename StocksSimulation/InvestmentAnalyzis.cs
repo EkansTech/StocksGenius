@@ -1,4 +1,5 @@
-﻿using System;
+﻿using StocksData;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -29,7 +30,7 @@ namespace StocksSimulation
 
         public static string SubDirectory { get; set; }
 
-        Dictionary<int, List<Investment>> SimulationData { get; set; }
+        Dictionary<DateTime, List<Investment>> SimulationData { get; set; }
 
         public int SimulationRun { get; set; }
 
@@ -43,14 +44,14 @@ namespace StocksSimulation
         {
             WorkingDirectory = workingDirectory;
             SimulationRun = simulationRun;
-            SimulationData = new Dictionary<int, List<Investment>>();
+            SimulationData = new Dictionary<DateTime, List<Investment>>();
         }
 
         #endregion
 
         #region Interface
 
-        public void Add(Investment investment, int day)
+        public void Add(Investment investment, DateTime day)
         {
             if (!SimulationData.ContainsKey(day))
             {
@@ -77,31 +78,34 @@ namespace StocksSimulation
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {
-                writer.WriteLine("SimulationDay,InvestmentID,Action,ActionReason,InvestmentDay,ReleaseDay,InvestmentType," 
-                     + "DataSetName,InvestedPrice,TodayPrice,Profit,CurrentProfit%,TotalProfit,StockTotalProfit,DataItem,Range,NumOfPredictions,AverageCorrectness");
-                foreach (int day in SimulationData.Keys)
+                writer.WriteLine("SimulationDay,ID,Action,ActionReason,InvestmentDay,ReleaseDay,InvestmentType,"
+                     + "DataSetName,InvestedPrice,TodayPrice,Profit,Profit%,TotalValue,RealMoney,StockTotalProfit,DataItem,Range,NumOfPredictions,AverageCorrectness,InvestmentValue,LastChange");
+                foreach (DateTime day in SimulationData.Keys)
                 {
                     foreach (Investment investment in SimulationData[day])
                     {
-                        writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}%,{12},{13},{14},{15},{16},{17}",
-                            day,
+                        writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}%,{12},{13},{14},{15},{16},{17},{18},{19},{20}%",
+                            day.ToShortDateString(),
                             investment.ID,
                             investment.Action,
                             investment.ActionReason,
                             investment.InvestmentDay,
                             investment.ReleaseDay,
                             investment.InvestmentType,
-                            investment.DataSet.DataSetName,
+                            investment.DataSet.DataSetCode,
                             investment.InvestedPrice,
                             investment.GetDayPrice(day),
                             investment.Profit,
-                            investment.CurrentProfitPercentage(day),
-                            investment.ReleaseTotalProfit,
-                            investment.ReleaseStockTotalProfit,
+                            investment.ProfitPercentage(day),
+                            investment.TotalValue,
+                            investment.RealMoney,
+                            investment.StockTotalProfit,
                             investment.PredictedChange.DataItem,
                             investment.PredictedChange.Range,
                             investment.Analyze.NumOfPredictions,
-                            investment.Analyze.AverageCorrectness);
+                            investment.Analyze.AverageCorrectness,
+                            investment.GetInvestmentValue(day),
+                            (investment.GetInvestmentValue(day) - investment.GetInvestmentValue(day, 1)) / investment.GetInvestmentValue(day, 1) * 100);
                     }
                 }
             }
@@ -125,26 +129,30 @@ namespace StocksSimulation
             using (StreamWriter writer = new StreamWriter(filePath))
             {
                 writer.WriteLine("SimulationDay,InvestmentID,Action,ActionReason,InvestmentDay,ReleaseDay,InvestmentType,"
-                     + "DataSetName,InvestedPrice,TodayPrice,Profit,CurrentProfit%,TotalProfit,StockTotalProfit,DataItem,Range,NumOfPredictions,AverageCorrectness");
-                foreach (int day in SimulationData.Keys)
+                     + "DataSetName,InvestedPrice,TodayPrice,Profit,Profit%,TotalValue,StockTotalProfit,DataItem,Range,NumOfPredictions,AverageCorrectness");
+                foreach (DateTime day in SimulationData.Keys)
                 {
-                    foreach (Investment investment in SimulationData[day].OrderBy(x => x.DataSet.DataSetName))
+                    foreach (Investment investment in SimulationData[day].OrderBy(x => x.DataSet.DataSetCode))
                     {
                         writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}%,{12},{13}",
-                            day,
+                            day.ToShortDateString(),
                             investment.ID,
                             investment.Action,
                             investment.ActionReason,
                             investment.InvestmentDay,
                             investment.ReleaseDay,
                             investment.InvestmentType,
-                            investment.DataSet.DataSetName,
+                            investment.DataSet.DataSetCode,
                             investment.InvestedPrice,
                             investment.GetDayPrice(day),
                             investment.Profit,
-                            investment.CurrentProfitPercentage(day),
-                            investment.ReleaseTotalProfit,
-                            investment.ReleaseStockTotalProfit);
+                            investment.ProfitPercentage(day),
+                            investment.TotalValue,
+                            investment.StockTotalProfit,
+                            investment.PredictedChange.DataItem,
+                            investment.PredictedChange.Range,
+                            investment.Analyze.NumOfPredictions,
+                            investment.Analyze.AverageCorrectness);
                     }
                 }
             }

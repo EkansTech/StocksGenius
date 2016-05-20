@@ -37,7 +37,9 @@ namespace StocksSimulation
 
         public double Profit { get; set; }
 
-        public double AccountBefore { get; set; }
+        public double InvestmentValue { get; set; }
+
+        public double TotalValue { get; set; }
 
         public Analyze Analyze { get; set; }
 
@@ -51,59 +53,60 @@ namespace StocksSimulation
 
         public ActionReason ActionReason { get; set; }
 
-        public double ReleaseTotalProfit { get; set; }
-
-        public double ReleaseStockTotalProfit { get; set; }
+        public double StockTotalProfit { get; set; }
 
         public bool OnLooseSaving { get; set; }
+
+        public double RealMoney { get; set; }
 
         #endregion
 
         #region Constructors
 
-        public Investment(DataSet dataSet, DataSet priceDataSet, Analyze analyze, int day, double accountBefore, double totalProfit, double stockTotalProfit, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
+        public Investment(DataSet dataSet, DataSet priceDataSet, Analyze analyze, DateTime day, double totalValue, double realMoney, double stockTotalProfit, double addPercentagePrice, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
         {
             ID = m_IDs++;
             DataSet = dataSet;
             PriceDataSet = priceDataSet;
             DataSet = analyze.DataSet;
             PredictedChange = analyze.PredictedChange;
-            CountDay = day;
-            InvestmentDay = day;
-            InvestedPrice = PriceDataSet.GetDayData(day)[(int)dataColumn];
-            Ammount = (int)(SimSettings.InvestmentMoney / InvestedPrice);
-            AccountBefore = accountBefore;
+            CountDay = dataSet.GetDayNum(day);
+            InvestmentDay = dataSet.GetDayNum(day);
+            InvestedPrice = PriceDataSet.GetDayData(day)[(int)dataColumn] * (1 + addPercentagePrice);
+            Ammount = (int)(SimSettings.InvestmentPerStock / InvestedPrice);
+            TotalValue = totalValue;
+            RealMoney = realMoney;
             Analyze = analyze;
             IsEndOfInvestment = false;
             InvestmentType = (analyze.IsPositiveInvestment) ? BuySell.Buy : BuySell.Sell; // Test opposite decision
-            InvestedMoney = GetInvestmentMoney(Ammount, InvestedPrice, InvestmentType);
+            InvestedMoney = GetInvestmentMoney(InvestedPrice, InvestmentType);
             Action = ActionType.Created;
             ActionReason = ActionReason.NoReason;
             OnLooseSaving = false;
-            ReleaseTotalProfit = totalProfit;
-            ReleaseStockTotalProfit = stockTotalProfit;
+            StockTotalProfit = stockTotalProfit;
+            InvestmentValue = GetInvestmentValue(day);
         }
 
-        public Investment(DataSet dataSet, int day, double accountBefore, double totalProfit, double stockTotalProfit, BuySell investmentType, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
+        public Investment(DataSet dataSet, DateTime day, double totalValue, double totalProfit, double stockTotalProfit, BuySell investmentType, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
         {
             ID = m_IDs++;
             PriceDataSet = dataSet;
             DataSet = dataSet;
             //PredictedChange = null;
-            CountDay = day;
-            InvestmentDay = day;
+            CountDay = dataSet.GetDayNum(day);
+            InvestmentDay = dataSet.GetDayNum(day);
             InvestedPrice = PriceDataSet.GetDayData(day)[(int)dataColumn];
-            Ammount = (int)(SimSettings.InvestmentMoney / InvestedPrice);
-            AccountBefore = accountBefore;
+            Ammount = (int)(SimSettings.InvestmentPerStock / InvestedPrice);
+            TotalValue = totalValue;
             Analyze = null;
             IsEndOfInvestment = false;
             InvestmentType = investmentType;
-            InvestedMoney = GetInvestmentMoney(Ammount, InvestedPrice, InvestmentType);
+            InvestedMoney = GetInvestmentMoney(InvestedPrice, InvestmentType);
             Action = ActionType.Created;
             ActionReason = ActionReason.NoReason;
             OnLooseSaving = false;
-            ReleaseTotalProfit = totalProfit;
-            ReleaseStockTotalProfit = stockTotalProfit;
+            StockTotalProfit = stockTotalProfit;
+            InvestmentValue = GetInvestmentValue(day);
         }
 
         private Investment(Investment investment)
@@ -116,7 +119,8 @@ namespace StocksSimulation
             InvestmentDay = investment.InvestmentDay;
             InvestedPrice = investment.InvestedPrice;
             Ammount = investment.Ammount;
-            AccountBefore = investment.AccountBefore;
+            TotalValue = investment.TotalValue;
+            RealMoney = investment.RealMoney;
             Analyze = investment.Analyze;
             IsEndOfInvestment = investment.IsEndOfInvestment;
             InvestmentType = investment.InvestmentType;
@@ -125,8 +129,9 @@ namespace StocksSimulation
             ActionReason = investment.ActionReason;
             OnLooseSaving = investment.OnLooseSaving;
             Profit = investment.Profit;
-            ReleaseTotalProfit = investment.ReleaseTotalProfit;
-            ReleaseStockTotalProfit = investment.ReleaseStockTotalProfit;
+            InvestmentValue = investment.InvestmentValue;
+            TotalValue = investment.TotalValue;
+            StockTotalProfit = investment.StockTotalProfit;
             ReleaseDay = investment.ReleaseDay;
         }
 
@@ -139,12 +144,12 @@ namespace StocksSimulation
             m_IDs = 0;
         }
 
-        internal double CurrentProfitPercentage(int day)
+        internal double ProfitPercentage(DateTime day)
         {
             return Profit / InvestedMoney * 100;
         }
 
-        internal double GetDayPrice(int day)
+        internal double GetDayPrice(DateTime day)
         {
             return PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open];
         }
@@ -156,26 +161,27 @@ namespace StocksSimulation
 
         public static BuySell TimeToInvest(DataSet dataSet, List<Investment> investments, int day)
         {
-            if (dataSet.GetContinuousChange(day, DataSet.DataColumns.Open, 1) > StockSimulation.MinimumChange)
-            {
-                return BuySell.Buy;
-            }
-            else if (dataSet.GetContinuousChange(day, DataSet.DataColumns.Open, 1) < -StockSimulation.MinimumChange)
-            {
-                return BuySell.Sell;
-            }
+            //if (dataSet.GetContinuousChange(day, DataSet.DataColumns.Open, 1) > StockSimulation.MinimumChange)
+            //{
+            //    return BuySell.Buy;
+            //}
+            //else if (dataSet.GetContinuousChange(day, DataSet.DataColumns.Open, 1) < -StockSimulation.MinimumChange)
+            //{
+            //    return BuySell.Sell;
+            //}
 
             return BuySell.None;
         }
 
-        public void UpdateInvestment(int day, double totalProfit, double stockTotalProfit)
+        public void UpdateInvestment(DateTime day, double totalValue, double stockTotalProfit)
         {
             Action = ActionType.NoAction;
-            ReleaseTotalProfit = totalProfit;
-            ReleaseStockTotalProfit = stockTotalProfit;
+            TotalValue = totalValue;
+            StockTotalProfit = stockTotalProfit;
             Profit = GetProfit(day);
+            InvestmentValue = GetInvestmentValue(day);
 
-            if (day == 0)
+            if (DataSet.GetDayNum(day) == 0)
             {
                 Action = ActionType.Released;
                 ActionReason = ActionReason.EndOfTrade;
@@ -202,7 +208,7 @@ namespace StocksSimulation
                 }
             }
 
-            if (InvestmentDay - day >= 1)
+            if (InvestmentDay - DataSet.GetDayNum(day) >= 1)
             {
                 IsEndOfInvestment = true;
                 Action = ActionType.Released;
@@ -211,12 +217,16 @@ namespace StocksSimulation
 
         }
 
-        public void UpdateInvestment(DailyAnalyzes dailyAnalyzes, int day, double totalProfit, double stockTotalProfit)
+        public void UpdateInvestment(DailyAnalyzes dailyAnalyzes, DateTime day, double totalValue, double realMoney, double stockTotalProfit)
         {
             Action = ActionType.NoAction;
-            ReleaseTotalProfit = totalProfit;
-            ReleaseStockTotalProfit = stockTotalProfit;
+            TotalValue = totalValue;
+            StockTotalProfit = stockTotalProfit;
             Profit = GetProfit(day);
+            InvestmentValue = GetInvestmentValue(day);
+            ReleaseDay = DataSet.GetDayNum(day);
+            RealMoney = realMoney;
+            ActionReason releaseReason;
 
             //if (InvestmentDay - day >= AnalyzerSimulator.MaxInvestmentsLive)
             //{
@@ -226,46 +236,48 @@ namespace StocksSimulation
             //    return;
             //}
 
-            if (day == 0)
+            if (DataSet.GetDayNum(day) == 0)
             {
                 Action = ActionType.Released;
                 ActionReason = ActionReason.EndOfTrade;
                 IsEndOfInvestment = true;
+                return;
             }
 
-            int daysLeft = PredictedChange.Range - (CountDay - day);
+            int daysLeft = PredictedChange.Range - (CountDay - DataSet.GetDayNum(day));
 
             if (dailyAnalyzes.ContainsKey(DataSet))
             {
                 var dataSetAnalyzes = dailyAnalyzes[DataSet].Values.OrderBy(x => x.PredictedChange.Range);
-                //if ((InvestmentType == BuySell.Buy && dataSetAnalyzes.First().IsNegativeInvestment)
-                //    || (InvestmentType == BuySell.Sell && dataSetAnalyzes.First().IsPositiveInvestment))
-                //{
-                //    IsEndOfInvestment = true;
-                //    Action = Action.Released;
-                //    ActionReason = ActionReason.PredictionInverse;
-                //    return;
-                //}
-                //else if ((InvestmentType == BuySell.Buy && dataSetAnalyzes.First().IsPositiveInvestment)
-                //    || (InvestmentType == BuySell.Sell && dataSetAnalyzes.First().IsNegativeInvestment))
-                //{
-                //    Action = Action.Continued;
-                //    ActionReason = ActionReason.SamePredictions;
-                //    CountDay = day;
-                //    PredictedChange = dataSetAnalyzes.First().PredictedChange;
-                //    return;
-                //}
+                if ((InvestmentType == BuySell.Buy && dataSetAnalyzes.First().IsNegativeInvestment)
+                    || (InvestmentType == BuySell.Sell && dataSetAnalyzes.First().IsPositiveInvestment))
+                {
+                    IsEndOfInvestment = true;
+                    Action = ActionType.Released;
+                    ActionReason = ActionReason.PredictionInverse;
+                    return;
+                }
+                else if ((InvestmentType == BuySell.Buy && dataSetAnalyzes.First().IsPositiveInvestment)
+                    || (InvestmentType == BuySell.Sell && dataSetAnalyzes.First().IsNegativeInvestment))
+                {
+                    releaseReason = IsTimeToRelease(DataSet.GetDayNum(day));
+                    if (releaseReason != ActionReason.NoReason)
+                    {
+                        IsEndOfInvestment = true;
+                        Action = ActionType.Released;
+                        ActionReason = releaseReason;
+                        return;
+                    }
+                    
+                    Action = ActionType.Continued;
+                    ActionReason = ActionReason.SamePredictions;
+                    CountDay = DataSet.GetDayNum(day);
+                    PredictedChange = dataSetAnalyzes.First().PredictedChange;
+                    return;
+                }
             }
 
-            if (daysLeft == 0)
-            {
-                IsEndOfInvestment = true;
-                Action = ActionType.Released;
-                ActionReason = ActionReason.EndOfPeriod;
-                return;
-            }
-
-            ActionReason releaseReason = IsTimeToRelease(day);
+            releaseReason = IsTimeToRelease(DataSet.GetDayNum(day));
             if (releaseReason != ActionReason.NoReason)
             {
                 IsEndOfInvestment = true;
@@ -273,52 +285,103 @@ namespace StocksSimulation
                 ActionReason = releaseReason;
                 return;
             }
+
+            if (daysLeft <= 0)
+            {
+                IsEndOfInvestment = true;
+                Action = ActionType.Released;
+                ActionReason = ActionReason.EndOfPeriod;
+                return;
+            }
+
+            //if (profit > 0)
+            //{
+            //    isendofinvestment = true;
+            //    action = actiontype.released;
+            //    actionreason = actionreason.goodprofit;
+            //    return;
+            //}
         }
 
-        public double UpdateAccountOnRelease(int day, double balance)
+        public double UpdateAccountOnRelease(DateTime day, double balance)
         {
             if (InvestmentType == BuySell.Buy)
             {
-                return balance + GetReleasePrice(day);
+                return balance + GetReleaseMoney(day);
             }
             else
             {
-                return balance - GetReleasePrice(day);
+                return balance - GetReleaseMoney(day);
             }
         }
 
-        public double UpdateAccountOnInvestment(int day, double balance)
-        {
-            if (InvestmentType == BuySell.Buy)
-            {
-                return balance - GetInvestmentMoney(Ammount, PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], BuySell.Buy);
-            }
-            else
-            {
-                return balance + GetInvestmentMoney(Ammount, PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], BuySell.Sell);
-            }
-        }
-
-        public double GetReleasePrice(int day)
-        {
-            BuySell releaseAction = (InvestmentType == BuySell.Buy) ? BuySell.Sell : BuySell.Buy;
-            return GetInvestmentMoney(Ammount, PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
-        }
-
-        public double GetProfit(int day)
-        {
-            return (InvestmentType == BuySell.Buy) ? GetReleasePrice(day) - InvestedMoney : InvestedMoney - GetReleasePrice(day);
-        }
-
-        public double Release(int day, ref double totalProfit, double stockTotalProfit)
+        public double UpdateAccountOnInvestment(DateTime day, double balance)
         {
             Profit = GetProfit(day);
-            totalProfit += Profit;
-            ReleaseTotalProfit = totalProfit;
-            ReleaseStockTotalProfit = stockTotalProfit + Profit;
-            ReleaseDay = day;
+            InvestmentValue = GetInvestmentValue(day);
+            if (InvestmentType == BuySell.Buy)
+            {
+                return balance - GetInvestmentMoney(PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], BuySell.Buy);
+            }
+            else
+            {
+                return balance + GetInvestmentMoney(PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], BuySell.Sell);
+            }
+        }
 
-            return ReleaseStockTotalProfit;
+        public void UpdateRealMoneyOnInvestment(DateTime day, ref double realMoney)
+        {
+            realMoney -= SimSettings.SafesForStockRate * InvestedMoney;
+        }
+
+        public void UpdateRealMoneyOnRelease(DateTime day, ref double realMoney)
+        {
+            realMoney += SimSettings.SafesForStockRate * InvestedMoney + Profit;
+        }
+
+        public double GetReleaseMoney(DateTime day)
+        {
+            BuySell releaseAction = (InvestmentType == BuySell.Buy) ? BuySell.Sell : BuySell.Buy;
+            return GetInvestmentMoney(PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
+        }
+
+        public double GetProfit(DateTime day)
+        {
+            return (InvestmentType == BuySell.Buy) ? GetReleaseMoney(day) - InvestedMoney : InvestedMoney - GetReleaseMoney(day);
+        }
+
+        public double GetInvestmentValue(DateTime day)
+        {
+            return SimSettings.SafesForStockRate * InvestedMoney + GetProfit(day);
+        }
+
+        public double GetInvestmentValue(DateTime day, int offset)
+        {
+            DateTime offsetDay = DataSet.GetDate(DataSet.GetDayNum(day) + 1);
+            return SimSettings.SafesForStockRate * InvestedMoney + GetProfit(offsetDay);
+        }
+
+        public double Release(DateTime day, ref double totalProfit, double stockTotalProfit)
+        {
+            Profit = GetProfit(day);
+            InvestmentValue = GetInvestmentValue(day);
+            totalProfit += Profit;
+            TotalValue = totalProfit;
+            StockTotalProfit = stockTotalProfit + Profit;
+            ReleaseDay = DataSet.GetDayNum(day);
+
+            return StockTotalProfit;
+        }
+
+        public double Release(DateTime day, double totalValue, double stockTotalProfit)
+        {
+            Profit = GetProfit(day);
+            InvestmentValue = GetInvestmentValue(day);
+            TotalValue = totalValue;
+            StockTotalProfit = stockTotalProfit + Profit;
+            ReleaseDay = DataSet.GetDayNum(day);
+
+            return StockTotalProfit;
         }
 
         #endregion
@@ -328,11 +391,11 @@ namespace StocksSimulation
         private ActionReason IsTimeToRelease(int day)
         {
             BuySell releaseAction = (InvestmentType == BuySell.Buy) ? BuySell.Sell : BuySell.Buy;
-            double releaseMoney = GetInvestmentMoney(Ammount, PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
-            double profitRatio = (InvestmentType == BuySell.Buy) ? (GetReleasePrice(day) - InvestedMoney) / InvestedMoney : (InvestedMoney - GetReleasePrice(day)) / InvestedMoney;
+            double releaseMoney = GetInvestmentMoney(PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
+            double profitRatio = Profit / InvestedMoney;
             if (profitRatio > PredictionsSimulator.MinProfitRatio)
             {
-                return ActionReason.GoodProfit;
+                //return ActionReason.GoodProfit;
             }
 
             //if (OnLooseSaving && profitRatio > AnalyzerSimulator.MaxLooseRatio / 2)
@@ -341,24 +404,24 @@ namespace StocksSimulation
             //    return ActionReason.BadLoose;
             //}
 
-            if (profitRatio < PredictionsSimulator.MaxLooseRatio && (CountDay - day) < PredictedChange.Range / 2)
+            if (profitRatio < PredictionsSimulator.MaxLooseRatio)// && (CountDay - day) < PredictedChange.Range / 2)
             {
-                OnLooseSaving = true;
-                return ActionReason.BadLoose;
+                //OnLooseSaving = true;
+                //return ActionReason.BadLoose;
             }
 
             return ActionReason.NoReason;
         }
 
-        private double GetInvestmentMoney(int ammount, double price, BuySell buyOrSell)
+        private double GetInvestmentMoney(double price, BuySell buyOrSell)
         {
             if (buyOrSell == BuySell.Buy)
             {
-                return ammount * (price + price * SimSettings.BuySellPenalty);
+                return Ammount * (price + price * SimSettings.BuySellPenalty);
             }
             else
             {
-                return ammount * (price - price * SimSettings.BuySellPenalty);
+                return Ammount * (price - price * SimSettings.BuySellPenalty);
             }
         }
 

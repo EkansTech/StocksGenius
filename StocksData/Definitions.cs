@@ -12,27 +12,36 @@ namespace StocksData
     public enum DataItem
     {
         None = 0,
-        OpenChange = 1,
-        CloseChange = OpenChange * 2,
-        VolumeChange = CloseChange * 2,
-        CloseOpenDif = VolumeChange * 2,
-        OpenPrevCloseDif = CloseOpenDif * 2,
-        HighOpenDif = OpenPrevCloseDif * 2,
-        HighCloseDif = HighOpenDif * 2,
-        NegativeOpenChange = HighCloseDif * 2,
-        NegativeCloseChange = NegativeOpenChange * 2,
-        NegativeVolumeChange = NegativeCloseChange * 2,
-        NegativeCloseOpenDif = NegativeVolumeChange * 2,
-        NegativeOpenPrevCloseDif = NegativeCloseOpenDif * 2,
-        NegativeLowOpenDif = NegativeOpenPrevCloseDif * 2,
-        NegativeLowCloseDif = NegativeLowOpenDif * 2,
+        OpenUp = 1,
+        CloseUp = OpenUp * 2,
+        VolumeUp = CloseUp * 2,
+        CloseOpenPositive = VolumeUp * 2,
+        OpenPrevClosePositive = CloseOpenPositive * 2,
+        HighOpenPositive = OpenPrevClosePositive * 2,
+        HighClosePositive = HighOpenPositive * 2,
+        OpenDown = HighClosePositive * 2,
+        CloseDown = OpenDown * 2,
+        VolumeDown = CloseDown * 2,
+        CloseOpenNegative = VolumeDown * 2,
+        OpenPrevCloseNegative = CloseOpenNegative * 2,
+        LowOpenNegative = OpenPrevCloseNegative * 2,
+        LowCloseNegative = LowOpenNegative * 2,
     }
 
     public enum TestDataAction
     {
         None,
-        LoadOnlyPredictionData,
+        LoadLimitedPredictionData,
         LoadOnlyTestData,
+        LoadWithoutTestData,
+    }
+
+    public enum DataSourceTypes
+    {
+        Quandl,
+        Yahoo,
+        Xignite,
+        Bloomberg,
     }
 
     public struct ChangeMap

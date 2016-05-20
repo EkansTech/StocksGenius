@@ -39,12 +39,12 @@ namespace StocksData
         }
 
 
-        private string m_DataSetName = string.Empty;
+        private string m_DataSetCode = string.Empty;
 
-        public string DataSetName
+        public string DataSetCode
         {
-            get { return m_DataSetName; }
-            set { m_DataSetName = value; }
+            get { return m_DataSetCode; }
+            set { m_DataSetCode = value; }
         }
         
         #endregion
@@ -55,21 +55,59 @@ namespace StocksData
         {
         }
 
-        public DataSet(string filePath, TestDataAction testDataAction = TestDataAction.None)
+        public DataSet(string dataSetCode, string filePath, TestDataAction testDataAction = TestDataAction.None)
         {
             LoadDataFromFile(filePath);
-            m_DataSetName = Path.GetFileNameWithoutExtension(filePath);
+            m_DataSetCode = dataSetCode;
+
+            int cellNum = 0;
+            long sinceTicks = DSSettings.DataRelevantSince.Ticks;
+            for (cellNum = 0; cellNum < Count; cellNum += (int)DataColumns.NumOfColumns)
+            {
+                if (sinceTicks > this[cellNum])
+                {
+                    break;
+                }
+            }
+
+            if (cellNum < Count)
+            {
+                RemoveRange(cellNum, Count - cellNum);
+            }
 
             switch (testDataAction)
             {
                 case TestDataAction.None:
                     break;
-                case TestDataAction.LoadOnlyPredictionData:
-                    RemoveRange(0, DSSettings.TestRange * (int)DataColumns.NumOfColumns);
-                    RemoveRange(DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns, Count - DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns);
+                case TestDataAction.LoadLimitedPredictionData:
+                    if (Count >= DSSettings.TestRange * (int)DataColumns.NumOfColumns)
+                    {
+                        RemoveRange(0, DSSettings.TestRange * (int)DataColumns.NumOfColumns);
+                    }
+                    else
+                    {
+                        Clear();
+                    }
+                    if (Count >= DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns)
+                    {
+                        RemoveRange(DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns, Count - DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns);
+                    }
                     break;
                 case TestDataAction.LoadOnlyTestData:
-                    RemoveRange(DSSettings.TestMinSize * (int)DataColumns.NumOfColumns, Count - DSSettings.TestMinSize * (int)DataColumns.NumOfColumns);
+                    if (Count > DSSettings.TestMinSize * (int)DataColumns.NumOfColumns)
+                    {
+                        RemoveRange(DSSettings.TestMinSize * (int)DataColumns.NumOfColumns, Count - DSSettings.TestMinSize * (int)DataColumns.NumOfColumns);
+                    }
+                    break;
+                case TestDataAction.LoadWithoutTestData:
+                    if (Count >= DSSettings.TestRange * (int)DataColumns.NumOfColumns)
+                    {
+                        RemoveRange(0, DSSettings.TestRange * (int)DataColumns.NumOfColumns);
+                    }
+                    else
+                    {
+                        Clear();
+                    }
                     break;
             }
         }
@@ -108,7 +146,7 @@ namespace StocksData
         {
             for (int i = 0; i < NumOfRows; i++)
             {
-                if (GetDate(i).Equals(date))
+                if (GetDate(i) <= date)
                 {
                     return i;
                 }
@@ -142,6 +180,12 @@ namespace StocksData
             return (this[rowNumber * (int)DataColumns.NumOfColumns + (int)dataColumn] - this[(rowNumber + 1) * (int)DataColumns.NumOfColumns + (int)dataColumn]) / this[(rowNumber + 1) * (int)DataColumns.NumOfColumns + (int)dataColumn];
         }
 
+        public double GetLastChange(DateTime date, DataColumns dataColumn)
+        {
+            int rowNumber = GetDayNum(date);
+            return (this[rowNumber * (int)DataColumns.NumOfColumns + (int)dataColumn] - this[(rowNumber + 1) * (int)DataColumns.NumOfColumns + (int)dataColumn]) / this[(rowNumber + 1) * (int)DataColumns.NumOfColumns + (int)dataColumn];
+        }
+
         public double GetContinuousChange(int rowNumber, DataColumns dataColumn, int range)
         {
             double lastChange = GetLastChange(rowNumber, dataColumn);
@@ -168,6 +212,7 @@ namespace StocksData
 
         public void LoadDataFromFile(string filePath)
         {
+            string lastDataLine = string.Empty;
             using (StreamReader csvFile = new StreamReader(filePath))
             {
                 // Read the first line and validate correctness of columns in the data file
@@ -175,14 +220,23 @@ namespace StocksData
 
                 while (!csvFile.EndOfStream)
                 {
-                    Add(csvFile.ReadLine());
+                    string dataLine = csvFile.ReadLine();
+
+                    if (lastDataLine != dataLine)
+                    {
+                        Add(dataLine);
+                    }
+
+                    lastDataLine = dataLine;
                 }
             }
         }
 
-        private void Add(string dataLine)
+        private bool Add(string dataLine)
         {
             string[] data = dataLine.Split(',');
+
+            List<double> newDateData = new List<double>();
 
             Add(Convert.ToDateTime(data[0]).Date.Ticks);
             
@@ -190,23 +244,48 @@ namespace StocksData
             {
                 if (string.IsNullOrWhiteSpace(data[i]))
                 {
-                    Add(0);
+                    return false;
                 }
                 else
                 {
-                    Add(Convert.ToDouble(data[i]));
+                    newDateData.Add(Convert.ToDouble(data[i]));
                 }
             }
+
+            AddRange(newDateData);
+
+            return true;
+        }
+
+        public void AddTodayOpenData(DateTime date, double openPrice)
+        {
+            if (Contains(date.Ticks))
+            {
+                Console.WriteLine(" {0} Warning: No today trade data is available", DataSetCode);
+                return;
+            }
+
+            List<double> todayData = new List<double>();
+            for (int i = 0; i < (int)DataColumns.NumOfColumns; i++)
+            {
+                todayData.Add(0.0);
+            }
+
+            todayData[(int)DataColumns.Date] = date.Ticks;
+            todayData[(int)DataColumns.Open] = openPrice;
+            InsertRange(0, todayData);
+
+            Console.WriteLine("{0} Contains new open data for {1}", DataSetCode, date.ToShortDateString());
         }
 
         public override string ToString()
         {
-            return DataSetName;
+            return DataSetCode;
         }
 
-        internal void DeleteRows(int dayNum)
+        internal void DeleteRows(DateTime date)
         {
-            RemoveRange(0, dayNum * (int)DataColumns.NumOfColumns);
+            RemoveRange(0, GetDayNum(date) * (int)DataColumns.NumOfColumns);
         }
 
         internal void CleanTodayData()
@@ -236,7 +315,7 @@ namespace StocksData
             {
                 if (!m_ColumnNames[i].ToLower().Equals(columnNames[i].ToLower().Trim()))
                 {
-                    throw new Exception(string.Format("Expected column {0] instead of {1] in the {2} data set", m_ColumnNames[i], columnNames[i], DataSetName));
+                    throw new Exception(string.Format("Expected column {0] instead of {1] in the {2} data set", m_ColumnNames[i], columnNames[i], DataSetCode));
                 }
             }
         }

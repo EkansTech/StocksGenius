@@ -64,6 +64,7 @@
   <ItemGroup>
     <Compile Include="AnalyzeConclusions.cs" />
     <Compile Include="Log.cs" />
+    <Compile Include="CombinedPredictionsSimulator.cs" />
     <Compile Include="PredictionsSimulator.cs" />
     <Compile Include="Definitions.cs" />
     <Compile Include="Investment.cs" />

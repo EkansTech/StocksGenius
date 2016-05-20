@@ -34,9 +34,11 @@ namespace StocksData
         public PredictionRecord(PredictionRecord predictionRecord, DataSet dataSet)
         {
             Combination = predictionRecord.Combination;
+            CombinationULong = predictionRecord.CombinationULong;
             PredictionCorrectness = predictionRecord.PredictionCorrectness;
             PredictedChange = predictionRecord.PredictedChange;
             DataSet = dataSet;
+            DataPredictions = predictionRecord.DataPredictions;
         }
 
         #endregion

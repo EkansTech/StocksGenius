@@ -57,7 +57,6 @@ namespace StocksGenius
 
         public double InvestedMoney { get; set; }
 
-        public double Profit { get; set; }
 
         public double AccountBefore { get; set; }
 
@@ -72,6 +71,37 @@ namespace StocksGenius
         public double StockTotalProfit { get; set; }
 
         public InvestmentStatus Status { get; set; }
+
+        public double Profit
+        {
+            get
+            {
+                if (InvestmentType == BuySell.Buy)
+                {
+                    return GetReleaseMoney(ReleaseDay) - InvestedMoney;
+                }
+                else
+                {
+                    return InvestedMoney - GetReleaseMoney(ReleaseDay);
+                }
+            }
+        }
+
+
+        public double InvestmentValue
+        {
+            get
+            {
+                if (InvestmentType == BuySell.Buy)
+                {
+                    return SGSettings.SafesForStockRate * InvestedMoney + (GetReleaseMoney(ReleaseDay) - InvestedMoney);
+                }
+                else
+                {
+                    return SGSettings.SafesForStockRate * InvestedMoney + (InvestedMoney - GetReleaseMoney(ReleaseDay));
+                }
+            }
+        }
 
         #endregion
 
@@ -134,7 +164,6 @@ namespace StocksGenius
             InvestedMoney = investment.InvestedMoney;
             Action = investment.Action;
             ActionReason = investment.ActionReason;
-            Profit = investment.Profit;
             TotalProfit = investment.TotalProfit;
             StockTotalProfit = investment.StockTotalProfit;
             ReleaseDay = investment.ReleaseDay;
@@ -185,7 +214,6 @@ namespace StocksGenius
             Action = ActionType.NoAction;
             TotalProfit = totalProfit;
             StockTotalProfit = stockTotalProfit;
-            Profit = GetProfit();
 
             //if (InvestmentDay - day >= AnalyzerSimulator.MaxInvestmentsLive)
             //{
@@ -273,7 +301,7 @@ namespace StocksGenius
 
         public void UpdateRealMoneyOnRelease(ref double realMoney)
         {
-            realMoney += SGSettings.SafesForStockRate * GetReleaseMoney() + Profit;
+            realMoney += SGSettings.SafesForStockRate *  InvestedMoney + Profit;
         }
 
         public double GetReleaseMoney()
@@ -282,25 +310,26 @@ namespace StocksGenius
             return GetInvestmentMoney(PriceDataSet.GetDayData(0)[(int)DataSet.DataColumns.Open], releaseAction);
         }
 
+        public double GetReleaseMoney(DateTime date)
+        {
+            if (date == DateTime.MinValue)
+            {
+                return GetReleaseMoney();
+            }
+            else
+            {
+                return GetReleaseMoney(DataSet.GetDayNum(date));
+            }
+        }
+
         public double GetReleaseMoney(int day)
         {
             BuySell releaseAction = (InvestmentType == BuySell.Buy) ? BuySell.Sell : BuySell.Buy;
             return GetInvestmentMoney(PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
         }
 
-        public double GetProfit()
-        {
-            return (InvestmentType == BuySell.Buy) ? GetReleaseMoney() - InvestedMoney : InvestedMoney - GetReleaseMoney();
-        }
-
-        public double GetCurrentProfit()
-        {
-            return (InvestmentType == BuySell.Buy) ? GetReleaseMoney() - InvestedMoney : InvestedMoney - GetReleaseMoney();
-        }
-
         public double Release(ref double totalProfit, double stockTotalProfit)
         {
-            Profit = GetProfit();
             totalProfit += Profit;
             TotalProfit = totalProfit;
             StockTotalProfit = stockTotalProfit + Profit;
@@ -315,18 +344,6 @@ namespace StocksGenius
         {
             return priceDataSet.GetData(0, DataSet.DataColumns.Open) * (1 + (isPositiveInvestment ? SGSettings.BuySellPenalty : -SGSettings.BuySellPenalty));
         } 
-
-        public double GetInvestmentValue()
-        {
-            if (InvestmentType == BuySell.Buy)
-            {
-                return SGSettings.SafesForStockRate * InvestedMoney + (GetReleaseMoney() - InvestedMoney);
-            }
-            else
-            {
-                return SGSettings.SafesForStockRate * InvestedMoney + (InvestedMoney - GetReleaseMoney());
-            }
-        }
 
         internal int GetLiveLength()
         {

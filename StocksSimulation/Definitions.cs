@@ -33,5 +33,6 @@ namespace StocksSimulation
         BadLoose,
         EndOfTrade,
         MaxInvestmentLive,
+        SafeMode,
     }
 }

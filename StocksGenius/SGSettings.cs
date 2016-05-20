@@ -1,4 +1,5 @@
-﻿using System;
+﻿using StocksData;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,13 +9,7 @@ namespace StocksGenius
 {
     public static class SGSettings
     {
-        public const double InvestmentMoney = 1000;
-
-        public const string WorkingDirectory = @"C:\Ekans\Stocks\iForex\";
-
-        public const string InvestmentsFile = "Investments.csv";
-
-        public const double EffectivePredictionResult = 0.95;
+        public static double EffectivePredictionResult = 0.95;
 
         public static double PredictionErrorRange = 0.01;
 
@@ -22,14 +17,30 @@ namespace StocksGenius
 
         public static double MaxLooseRatio = 0.3;
 
-        public static double BuySellPenalty = 0.001;
+        public static double BuySellPenalty = 0.003;
+
+        public static double SafesForStockRate = 0.05;
+
+        public static double InvestmentPerStock = 5000;
+
+        public static string DataSetsCodesPrefix = "WIKI-";
+
+        public static DataSourceTypes DataSourceType = DataSourceTypes.Yahoo;
+
+        public const string RootDiretory = @"C:\Ekans\Stocks\";
+
+        public static string Workspace = @"C:\Ekans\Stocks\iForex\";
 
         public const string InvestmentsFileName = "Investments.csv";
 
-        public const double SafesForStockRate = 0.05;
+        public const string InvestmentsFile = "Investments.csv";
 
-        public const double InvestmentPerStock = 5000;
+        public const string StockSettingsIni = "StocksSettings.ini";
+
+        public const string WorkspaceSettingsIni = "WorkspaceSettings.ini";
 
         public const string InvestorIni = "Investor.ini";
+
+        public const string NewOpenDataFile = "TodayOpenData.csv";
     }
 }

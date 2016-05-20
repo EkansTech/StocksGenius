@@ -78,7 +78,7 @@ namespace StocksData
 
                 for (int i = 0; i < DSSettings.PredictionItems.Count; i++)
                 {
-                    if (dataPredictions[combination][i] >= DSSettings.MinimumRelevantPredictionResult)
+                    if (dataPredictions[combination][i] >= DSSettings.EffectivePredictionResult)
                     {
                         PredictedItemsAnalyzes[DSSettings.PredictionItems[i]].Update(combinationItems.Count);
                     }
@@ -100,15 +100,15 @@ namespace StocksData
         {
         }
 
-        public static void AnalyzePredictions(string workingDirectory, Dictionary<string, string> dataPredictionsPaths)
+        public static void AnalyzePredictions(string workingDirectory, DataSetsMetaData metadata)
         {
             Dictionary<string, PredictionsAnalyze> predictionsAnalyzes = new Dictionary<string, PredictionsAnalyze>();
-            foreach (string dataSetName in dataPredictionsPaths.Keys)
+            foreach (string dataSetCode in metadata.Keys)
             {
-                DataPredictions dataPredictions = new DataPredictions(dataPredictionsPaths[dataSetName]);
+                DataPredictions dataPredictions = new DataPredictions(metadata[dataSetCode].DataPredictionsFilePath);
 
                 PredictionsAnalyze predictionsAnalyze = new PredictionsAnalyze(dataPredictions);
-                predictionsAnalyzes.Add(dataSetName, predictionsAnalyze);
+                predictionsAnalyzes.Add(dataSetCode, predictionsAnalyze);
                 predictionsAnalyze.SaveToFile();
             }
 

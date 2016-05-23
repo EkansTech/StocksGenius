@@ -16,13 +16,9 @@ namespace StocksData
 
         public const string PriceDataSetsDir = "DataSets\\";
 
-        public const string PredictionSuffix = "-Predictions";
-
         public const string PredictionDir = "Predictions\\";
 
         public const string SimPredictionDir = "SimPredictions\\";
-
-        public const string LatestPredictionsSuffix = "-LatestPredictions";
                             
         public const string LatestPredictionsDir = "LatestPredictions\\";
 
@@ -30,9 +26,9 @@ namespace StocksData
 
         public const string CombinedDataPredictionsFile = "CombinedDataPredictions.csv";
 
-        public static double PredictionErrorRange = 0.01;
-
         public static double MinimumChangesForPredictionRatio = 0.01;
+
+        public static int MinimumChangesForPrediction = 10;
 
         public static double EffectivePredictionResult = 0.9;
 
@@ -44,13 +40,13 @@ namespace StocksData
 
         public const int PredictionsSize = 300;
 
-        public static int MaxChangeRange { get { return ChangeItems.Select(x => x.Range).Max(); } }
+        public static int MaxChangeRange { get { return ChangeItems.Select(x => x.Range * 2 + x.Offset + 20).Max(); } }
 
-        public static int MaxPredictionRange { get { return PredictionItems.Select(x => x.Range).Max(); } }
+        public static int MaxPredictionRange { get { return PredictionItems.Select(x => x.Range + x.Offset).Max(); } }
 
-        public static int DataSetForPredictionsSize { get { return PredictionsSize + 3 * MaxChangeRange; } }
+        public static int DataSetForPredictionsSize { get { return PredictionsSize + MaxChangeRange + MaxPredictionRange; } }
 
-        public static int TestMinSize { get { return TestRange + 3 * MaxChangeRange; } }
+        public static int TestMinSize { get { return TestRange + MaxChangeRange; } }
 
         public static readonly int GPUCycleSize = 1024 * 1024;
 

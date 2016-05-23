@@ -59,7 +59,14 @@ namespace StocksData
         public DataSet DataSet { get; internal set; }
         public double GPULoadTime { get; internal set; }
 
-        public int MinimumChangesForPrediction { get { return (int)(DataSet.NumOfRows * DSSettings.MinimumChangesForPredictionRatio); } }
+        public int MinimumChangesForPrediction
+        {
+            get
+            {
+                return (DataSet.NumOfRows * DSSettings.MinimumChangesForPredictionRatio > DSSettings.MinimumChangesForPrediction) ? 
+                    (int)(DataSet.NumOfRows * DSSettings.MinimumChangesForPredictionRatio) : DSSettings.MinimumChangesForPrediction;
+            }
+        }
 
         #endregion
 
@@ -364,7 +371,7 @@ namespace StocksData
 
                 for (int dataRow = 0; dataRow < DataSet.NumOfRows - combinationItem.Range * 3; dataRow++)
                 {
-                    if (IsContainsPrediction(combinationItem, dataRow + combinationItem.Range, DSSettings.PredictionErrorRange, -DSSettings.PredictionErrorRange))
+                    if (IsContainsPrediction(combinationItem, dataRow + combinationItem.Range))
                     {
                         combinationPredictions.Add(dataRow);
                     }
@@ -377,7 +384,7 @@ namespace StocksData
             }
         }
 
-        public virtual bool IsContainsPrediction(CombinationItem combinationItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
+        public virtual bool IsContainsPrediction(CombinationItem combinationItem, int dataRow)
         {
             if (DataSet.NumOfRows <= dataRow + combinationItem.Range * 2)
             {
@@ -385,9 +392,9 @@ namespace StocksData
             }
             ChangeMap changeMap = DSSettings.DataItemsCalculationMap[combinationItem.DataItem];
 
-            double change = CalculateChange(dataRow, combinationItem.Range, changeMap.FromData, changeMap.OfData, changeMap.FromOffset, changeMap.OfOffset, changeMap.Offset);
+            double change = CalculateChange(dataRow, combinationItem.Range, combinationItem.Offset, changeMap.FromData, changeMap.OfData, changeMap.FromOffset, changeMap.OfOffset, changeMap.Offset);
 
-            if ((changeMap.IsPositiveChange && change > upperErrorBorder) || (!changeMap.IsPositiveChange && change < lowerErrorBorder))
+            if ((changeMap.IsPositiveChange && change >= combinationItem.ErrorRange) || (!changeMap.IsPositiveChange && change <= -combinationItem.ErrorRange))
             {
                 return true;
             }
@@ -395,20 +402,20 @@ namespace StocksData
             return false;
         }
 
-        public virtual bool IsGoodPrediction(CombinationItem changeItem, CombinationItem predictedItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
+        public virtual bool IsGoodPrediction(CombinationItem changeItem, CombinationItem predictedItem, int dataRow)
         {
-            if (!IsContainsPrediction(changeItem, dataRow + changeItem.Range - 1, upperErrorBorder, lowerErrorBorder))
+            if (!IsContainsPrediction(changeItem, dataRow + changeItem.Range - 1))
             {
                 return false;
             }
 
             ChangeMap changeMap = DSSettings.DataItemsCalculationMap[predictedItem.DataItem];
 
-            double fromAverage = CalculateAverage(dataRow, predictedItem.Range - 1, changeMap.FromData);
-            double ofAverage = CalculateAverage(dataRow + predictedItem.Range, predictedItem.Range, changeMap.FromData);
+            double fromAverage = CalculateAverage(dataRow + predictedItem.Offset, predictedItem.Range - 1, changeMap.FromData);
+            double ofAverage = CalculateAverage(dataRow + predictedItem.Offset + predictedItem.Range, predictedItem.Range, changeMap.FromData);
             double change = (fromAverage - ofAverage) / ofAverage;
 
-            if ((changeMap.IsPositiveChange && change <= upperErrorBorder) || (!changeMap.IsPositiveChange && change >= lowerErrorBorder))
+            if ((changeMap.IsPositiveChange && change <= changeItem.ErrorRange) || (!changeMap.IsPositiveChange && change >= -changeItem.ErrorRange))
             {
                 return true;
             }
@@ -416,19 +423,19 @@ namespace StocksData
             return false;
         }
 
-        private double CalculateChange(int dataRow, int range, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, int fromRowOffset, int ofRowOffset, int offset)
+        private double CalculateChange(int dataRow, int changeRange, int changeOffset, DataSet.DataColumns dataColumFrom, DataSet.DataColumns dataColumOf, int fromRowOffset, int ofRowOffset, int offset)
         {
-            int dataFromStartPosition = fromRowOffset * range + offset;
-            int dataOfStartPosition = ofRowOffset * range + offset;
+            int dataFromStartPosition = fromRowOffset * changeRange + offset + changeOffset;
+            int dataOfStartPosition = ofRowOffset * changeRange + offset + changeOffset;
             double sumOf = 0;
             double sumFrom = 0;
-            for (int i = dataRow; i < dataRow + range; i++)
+            for (int i = dataRow; i < dataRow + changeRange; i++)
             {
                 sumOf += DataSet[(i + dataOfStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumOf];
                 sumFrom += DataSet[(i + dataFromStartPosition) * (int)DataSet.DataColumns.NumOfColumns + (int)dataColumFrom];
             }
 
-            return (sumFrom - sumOf) / sumOf / range;
+            return (sumFrom - sumOf) / sumOf / changeRange;
         }
 
         private double CalculateAverage(int dataRow, int range, DataSet.DataColumns dataColum)
@@ -474,8 +481,12 @@ namespace StocksData
             m_GPUPredictions = new GPUPredictions(DataSet.ToArray(), 
                 DSSettings.ChangeItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
                 DSSettings.ChangeItems.Select(x => x.Range).ToArray(),
+                DSSettings.ChangeItems.Select(x => x.Offset).ToArray(),
+                DSSettings.ChangeItems.Select(x => x.ErrorRange).ToArray(),
                 DSSettings.PredictionItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
                 DSSettings.PredictionItems.Select(x => x.Range).ToArray(),
+                DSSettings.PredictionItems.Select(x => x.Offset).ToArray(),
+                DSSettings.PredictionItems.Select(x => x.ErrorRange).ToArray(),
                 DSSettings.GPUCycleSize);
             GPULoadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
 
@@ -544,8 +555,12 @@ namespace StocksData
                 m_GPUPredictions = new GPUPredictions(DataSet.ToArray(),
                     DSSettings.ChangeItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
                     DSSettings.ChangeItems.Select(x => x.Range).ToArray(),
+                    DSSettings.ChangeItems.Select(x => x.Offset).ToArray(),
+                    DSSettings.ChangeItems.Select(x => x.ErrorRange).ToArray(),
                     DSSettings.PredictionItems.Select(x => DSSettings.DataItems.IndexOf(x.DataItem)).ToArray(),
                     DSSettings.PredictionItems.Select(x => x.Range).ToArray(),
+                    DSSettings.PredictionItems.Select(x => x.Offset).ToArray(),
+                    DSSettings.PredictionItems.Select(x => x.ErrorRange).ToArray(),
                     gpuCombinationsItems[combinationSize].Count);
 
                 double[] predictionResultsArray = m_GPUPredictions.PredictCombinationsTest(combinations.ToArray(), combinationSize, gpuCombinationsItems[combinationSize].Count, 0, DSSettings.TestRange);
@@ -710,7 +725,7 @@ namespace StocksData
                     {
                         break;
                     }
-                    if (IsContainsPrediction(DSSettings.PredictionItems[predictionCombinationNum], m_PredictedCollections[combination][i], DSSettings.PredictionErrorRange, -DSSettings.PredictionErrorRange))
+                    if (IsContainsPrediction(DSSettings.PredictionItems[predictionCombinationNum], m_PredictedCollections[combination][i]))
                     {
                         correctPredictions[predictionCombinationNum]++;
                     }

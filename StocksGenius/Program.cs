@@ -1,4 +1,5 @@
 ﻿using StocksData;
+using StocksSimulation;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -63,11 +64,13 @@ namespace StocksGenius
             SGSettings.DataSourceType = ParseDataSourceType(settings.IniReadValue("DataSource", "DataSourceType"));
             SGSettings.DataSetsCodesPrefix = settings.IniReadValue("DataSource", "DataSetsCodesPrefix");
 
-            DSSettings.PredictionErrorRange = settings.IniReadDoubleValue("Prediction", "PredictionErrorRange");
             DSSettings.MinimumChangesForPredictionRatio = settings.IniReadDoubleValue("Prediction", "MinimumChangesForPredictionRatio");
+            DSSettings.MinimumChangesForPrediction = settings.IniReadIntValue("Prediction", "MinimumChangesForPrediction");
             DSSettings.EffectivePredictionResult = settings.IniReadDoubleValue("Prediction", "EffectivePredictionResult");
             DSSettings.PredictionMaxCombinationSize = settings.IniReadIntValue("Prediction", "PredictionMaxCombinationSize");
             DSSettings.DataRelevantSince = settings.IniReadDateTime("Prediction", "DataRelevantSince");
+            SGSettings.PredictionsSince = settings.IniReadDateTime("Prediction", "PredictionsSince");
+            SGSettings.PredictionEveryXMonths = settings.IniReadIntValue("Prediction", "PredictionEveryXMonths");
 
             SGSettings.EffectivePredictionResult = settings.IniReadDoubleValue("Investment", "EffectivePredictionResult");
             SGSettings.PredictionErrorRange = settings.IniReadDoubleValue("Investment", "PredictionErrorRange");
@@ -77,13 +80,20 @@ namespace StocksGenius
             SGSettings.SafesForStockRate = settings.IniReadDoubleValue("Investment", "SafesForStockRate");
             SGSettings.InvestmentPerStock = settings.IniReadDoubleValue("Investment", "InvestmentPerStock");
 
+            SimSettings.SimulateSince = settings.IniReadDateTime("Simulation", "SimulateSince");
+            SimSettings.SimulateEveryXMonths = settings.IniReadIntValue("Simulation", "SimulateEveryXMonths");
+
+            SimSettings.BuySellPenalty = SGSettings.BuySellPenalty;
+
             int i = 1;
             string predictionItem;
             while (!string.IsNullOrEmpty(predictionItem = settings.IniReadValue("PredictionItems", string.Format("Item{0}", i))))
             {
                 byte range = Convert.ToByte(predictionItem.Split(',')[0].Trim());
                 DataItem dataItem = (DataItem)Enum.Parse(typeof(DataItem), predictionItem.Split(',')[1].Trim());
-                DSSettings.PredictionItems.Add(new CombinationItem(range, dataItem));
+                byte offset = Convert.ToByte(predictionItem.Split(',')[2].Trim());
+                double errorRange = Convert.ToDouble(predictionItem.Split(',')[3].Trim());
+                DSSettings.PredictionItems.Add(new CombinationItem(range, dataItem, offset, errorRange));
                 i++;
             }
 
@@ -93,7 +103,9 @@ namespace StocksGenius
             {
                 byte range = Convert.ToByte(changeItem.Split(',')[0].Trim());
                 DataItem dataItem = (DataItem)Enum.Parse(typeof(DataItem), changeItem.Split(',')[1].Trim());
-                DSSettings.ChangeItems.Add(new CombinationItem(range, dataItem));
+                byte offset = Convert.ToByte(changeItem.Split(',')[2].Trim());
+                double errorRange = Convert.ToDouble(changeItem.Split(',')[3].Trim());
+                DSSettings.ChangeItems.Add(new CombinationItem(range, dataItem, offset, errorRange));
                 i++;
             }
         }

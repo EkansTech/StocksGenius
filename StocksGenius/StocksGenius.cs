@@ -50,7 +50,7 @@ namespace StocksGenius
 
         public void BuildSimPredictions()
         {
-            m_StocksData.BuildSimDataPredictions();
+            m_StocksData.BuildSimDataPredictions(SGSettings.PredictionsSince, SGSettings.PredictionEveryXMonths);
         }
 
         public void GetActions()
@@ -183,7 +183,7 @@ namespace StocksGenius
         {
             foreach (CombinationItem combinationItem in predictionRecord.Combination)
             {
-                if (!m_StocksData.DataPredictions[predictionRecord.DataSet.DataSetCode].IsContainsPrediction(combinationItem, dataSetRow, DSSettings.PredictionErrorRange, -DSSettings.PredictionErrorRange))
+                if (!m_StocksData.DataPredictions[predictionRecord.DataSet.DataSetCode].IsContainsPrediction(combinationItem, dataSetRow))
                 {
                     return false;
                 }

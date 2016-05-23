@@ -7,7 +7,22 @@ using System.Threading.Tasks;
 
 namespace StocksGenius
 {
-    public class Analyze
+    public class AnalyzeComparer : IComparer<Analyze>
+    {
+        public int Compare(Analyze x, Analyze y)
+        {
+            if (x.PredictedChange.Range != y.PredictedChange.Range)
+            {
+                return x.PredictedChange.Range - y.PredictedChange.Range;
+            }
+            else
+            {
+                return y.NumOfPredictions - x.NumOfPredictions;
+                // return (int)((y.AverageCorrectness * 100) - (x.AverageCorrectness * 100));
+            }
+        }
+    }
+    public class Analyze : IComparable
     {
         #region Properties
 
@@ -58,6 +73,12 @@ namespace StocksGenius
         {
             AverageCorrectness = (AverageCorrectness * NumOfPredictions + record.PredictionCorrectness) / (NumOfPredictions + 1);
             NumOfPredictions++;
+        }
+
+        public int CompareTo(object obj)
+        {
+            AnalyzeComparer comparer = new AnalyzeComparer();
+            return comparer.Compare(this, obj as Analyze);
         }
 
         #endregion
@@ -151,16 +172,11 @@ namespace StocksGenius
                 List<CombinationItem> badPredictions = new List<CombinationItem>();
                 foreach (CombinationItem combinationItem in this[dataSet].Keys)
                 {
-                    if (combinationItem.Is(DataItem.CloseOpenPositive, 1) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.CloseOpenNegative, 1)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.CloseOpenNegative, 1)); }
-                    else if (combinationItem.Is(DataItem.OpenPrevClosePositive, 1) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.OpenPrevCloseNegative, 1)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.OpenPrevCloseNegative, 1)); }
-                    else if (combinationItem.Is(DataItem.OpenUp, 3) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.OpenDown, 5)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.OpenDown, 3)); }
-                    else if (combinationItem.Is(DataItem.OpenUp, 6) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.OpenDown, 10)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.OpenDown, 6)); }
-                    else if (combinationItem.Is(DataItem.OpenUp, 9) && this[dataSet].ContainsKey(CombinationItem.Item(DataItem.OpenDown, 20)))
-                    { badPredictions.Add(combinationItem); badPredictions.Add(CombinationItem.Item(DataItem.OpenDown, 9)); }
+                    CombinationItem opposite = CombinationItem.Item(DSSettings.OppositeDataItems[combinationItem.DataItem], combinationItem.Range, combinationItem.Offset, combinationItem.ErrorRange);
+                    if (this[dataSet].ContainsKey(opposite) && this[dataSet][combinationItem].CompareTo(this[dataSet][opposite]) > 0)
+                    {
+                        badPredictions.Add(combinationItem);
+                    }
                 }
 
                 foreach (CombinationItem combinationItem in badPredictions)

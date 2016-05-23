@@ -417,7 +417,7 @@ namespace StocksGenius
         {
             foreach (CombinationItem combinationItem in predictionRecord.Combination)
             {
-                if (!predictionRecord.DataPredictions.IsContainsPrediction(combinationItem, 0, SGSettings.PredictionErrorRange, -SGSettings.PredictionErrorRange))
+                if (!predictionRecord.DataPredictions.IsContainsPrediction(combinationItem, 0))
                 {
                     return false;
                 }

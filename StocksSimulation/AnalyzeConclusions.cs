@@ -190,7 +190,7 @@ namespace StocksSimulation
                 List<CombinationItem> badPredictions = new List<CombinationItem>();
                 foreach (CombinationItem combinationItem in this[dataSet].Keys)
                 {
-                    CombinationItem opposite = CombinationItem.Item(DSSettings.OppositeDataItems[combinationItem.DataItem], combinationItem.Range);
+                    CombinationItem opposite = CombinationItem.Item(DSSettings.OppositeDataItems[combinationItem.DataItem], combinationItem.Range, combinationItem.Offset, combinationItem.ErrorRange);
                     if (this[dataSet].ContainsKey(opposite) && this[dataSet][combinationItem].CompareTo(this[dataSet][opposite]) > 0)
                     {
                         badPredictions.Add(combinationItem);

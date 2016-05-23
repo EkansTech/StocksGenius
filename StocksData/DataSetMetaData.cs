@@ -19,13 +19,17 @@ namespace StocksData
 
         public string ID { get; set; }
 
-        public string DataSetFilePath { get; set; }
+        public string Workspace { get; set; }
 
-        public string PriceDataSetFilePath { get; set; }
+        public string SimPredictionsDir { get; set; }
 
-        public string DataPredictionsFilePath { get; set; }
+        public string DataSetFilePath { get { return Workspace + DSSettings.DataSetsDir + FileName; } }
 
-        public string SimDataPredictionsFilePath { get; set; }
+        public string PriceDataSetFilePath { get { return Workspace + DSSettings.PriceDataSetsDir + FileName; } }
+
+        public string DataPredictionsFilePath { get { return Workspace + DSSettings.PredictionDir + FileName; } }
+
+        public string SimDataPredictionsFilePath { get { return SimPredictionsDir + FileName; } }
 
         #endregion
     }
@@ -38,6 +42,8 @@ namespace StocksData
 
         public string SimCombinedDataPredictionsFilePath { get; set; }
 
+        public string SimPredictionDir { get; set; }
+
         #endregion
 
         #region Constructor
@@ -47,6 +53,7 @@ namespace StocksData
             CombinedDataPredictionsFilePath = workspace + DSSettings.PredictionDir + DSSettings.CombinedDataPredictionsFile;
             SimCombinedDataPredictionsFilePath = workspace + DSSettings.SimPredictionDir + DSSettings.CombinedDataPredictionsFile;
             LoadFromFile(workspace + DSSettings.DataSetsMetaDataFile, workspace);
+            SimPredictionDir = workspace + DSSettings.SimPredictionDir;
         }
 
         #endregion
@@ -64,12 +71,10 @@ namespace StocksData
                     DataSetMetaData metaData = new DataSetMetaData();
                     metaData.Code = lineData[0];
                     metaData.Name = lineData[1];
-                    metaData.FileName = lineData[2];
+                    metaData.FileName = lineData[2] + ".csv";
                     metaData.ID = lineData[3];
-                    metaData.DataSetFilePath = workspace + DSSettings.DataSetsDir + lineData[2] + ".csv";
-                    metaData.PriceDataSetFilePath = workspace + DSSettings.PriceDataSetsDir + lineData[2] + ".csv";
-                    metaData.DataPredictionsFilePath = workspace + DSSettings.PredictionDir + lineData[2] + DSSettings.PredictionSuffix + ".csv";
-                    metaData.SimDataPredictionsFilePath = workspace + DSSettings.SimPredictionDir + lineData[2] + DSSettings.PredictionSuffix + ".csv";
+                    metaData.Workspace = workspace;
+                    metaData.SimPredictionsDir = workspace + DSSettings.SimPredictionDir;
 
 
                     Add(lineData[0], metaData);

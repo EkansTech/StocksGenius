@@ -171,16 +171,16 @@ namespace StocksSimulation
                                                     m_InvestmentAnalyzis = new InvestmentAnalyzis(WorkingDirectory, m_SimulationRun);
                                                     m_AnalyzesSummary = new AnalyzesSummary(WorkingDirectory, m_SimulationRun);
 
-                                                    SimRecorder simRecorder = new SimRecorder(EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxLooseRatio,
+                                                    SimRecorder simRecorder = new SimRecorder(DateTime.MinValue, EffectivePredictionResult, MinProfitRatio, MaxInvestmentsPerStock, MaxLooseRatio,
                                                         MinPredictedRange, MaxPredictedRange, m_SimulationRun, PredictionErrorRange, MinCombinationItemsNum, MaxCombinationItemsNum, 0, 0);
                                                     for (int dataSetRow = DSSettings.TestRange; dataSetRow >= 0; dataSetRow--)
                                                     {
                                                         m_SimulationDate = new DateTime((long)DataSets.Values.First().GetDayData(dataSetRow)[0]);
                                                         Log.AddMessage("Trade date: {0}", m_SimulationDate.ToShortDateString());
                                                         RunSimulationCycle(m_SimulationDate);
-                                                        simRecorder.AddRecord(dataSetRow, m_SimulationDate, AccountBallance, TotalProfit, Investments.Count);
+                                                        simRecorder.AddRecord(m_SimulationDate, AccountBallance, TotalProfit, Investments.Count);
                                                     }
-                                                    simRecorder.SaveToFile("iForex", WorkingDirectory + SimSettings.SimulationRecordsDirectory, m_MaxTotalProfit, m_MinTotalProfit, m_TotalNumOfInvestments, 0.0, m_NumOfGoodInvestments);
+                                                    simRecorder.SaveToFile(WorkingDirectory + SimSettings.SimulationRecordsDirectory, m_MaxTotalProfit, m_MinTotalProfit, m_TotalNumOfInvestments, 0.0, m_NumOfGoodInvestments);
                                                     m_InvestmentAnalyzis.SaveToFile();
                                                     m_AnalyzesSummary.SaveToFile();
                                                     m_SimulationRun++;

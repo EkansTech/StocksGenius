@@ -34,6 +34,7 @@ namespace StocksData
         LoadLimitedPredictionData,
         LoadOnlyTestData,
         LoadWithoutTestData,
+        LoadDataUpTo,
     }
 
     public enum DataSourceTypes

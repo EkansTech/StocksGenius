@@ -24,16 +24,18 @@ namespace StocksData
 
         private readonly int m_PredictionsNum = DSSettings.PredictionItems.Count;
 
-        private readonly double m_ErrorRange = DSSettings.PredictionErrorRange;
-
         private readonly int m_MapLength = ChangeMap.NumOfData;
 
         private DeviceMemory<int> m_DataItemsMapDM;
         private DeviceMemory<double> m_DataSetDM;
         private DeviceMemory<int> m_ChangesDataItemsDM;
         private DeviceMemory<byte> m_ChangesRangesDM;
+        private DeviceMemory<byte> m_ChangesOffsetsDM;
+        private DeviceMemory<double> m_ChangesErrorRangesDM;
         private DeviceMemory<int> m_PredictionsDataItemsDM;
         private DeviceMemory<byte> m_PredictionsRangesDM;
+        private DeviceMemory<byte> m_PredictionsOffsetsDM;
+        private DeviceMemory<double> m_PredictionsErrorRangesDM;
         private DeviceMemory<byte> m_ChangesDM;
         private DeviceMemory<byte> m_PredictionsDM;
         private DeviceMemory<double> m_PredictionResultsDM;
@@ -42,7 +44,8 @@ namespace StocksData
 
         #region Constructors
 
-        public GPUPredictions(double[] dataset, int[] changesDataItems, byte[] changesRanges, int[] predictionDataItems, byte[] predictionRanges, int combinationsNum)
+        public GPUPredictions(double[] dataset, int[] changesDataItems, byte[] changesRanges, byte[] changesOffsets, double[] changesErrorRanges, 
+            int[] predictionDataItems, byte[] predictionRanges, byte[] predictionOffsets, double[] predictionErrorRanges, int combinationsNum)
             : base(GPUModuleTarget.DefaultWorker)
         {
             bool debugMode = false;
@@ -51,12 +54,11 @@ namespace StocksData
             // Allocate memory for initialization
             m_DataItemsMapDM = GPUWorker.Malloc(GetDataItemsMap());
             m_DataSetDM = GPUWorker.Malloc(dataset);
-            m_ChangesDataItemsDM = GPUWorker.Malloc(changesDataItems);
-            m_ChangesRangesDM = GPUWorker.Malloc(changesRanges);
-            m_PredictionsDataItemsDM = GPUWorker.Malloc(predictionDataItems);
-            m_PredictionsRangesDM = GPUWorker.Malloc(predictionRanges);
+            //m_ChangesDataItemsDM = GPUWorker.Malloc(changesDataItems);
+            //m_ChangesRangesDM = GPUWorker.Malloc(changesRanges);
+            //m_ChangesOffsetsDM = GPUWorker.Malloc(changesOffsets);
+            //m_ChangesErrorRangesDM = GPUWorker.Malloc(changesErrorRanges);
             m_ChangesDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_ChangesNum]);
-            m_PredictionsDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_PredictionsNum]);
 
 
             // Initialize
@@ -64,9 +66,25 @@ namespace StocksData
             var grid = new dim3(m_DataSetNumOfRows / block.x + 1);
             var lp = new LaunchParam(grid, block);
 
-            GPULaunch(BuildChanges, lp, m_DataSetDM.Ptr, m_ChangesDM.Ptr, m_DataItemsMapDM.Ptr, m_ChangesDataItemsDM.Ptr, m_ChangesRangesDM.Ptr); 
-            GPULaunch(BuildPredictions, lp, m_DataSetDM.Ptr, m_PredictionsDM.Ptr, m_DataItemsMapDM.Ptr, m_PredictionsDataItemsDM.Ptr, m_PredictionsRangesDM.Ptr);
-
+            for (int changeNum = 0; changeNum < DSSettings.ChangeItems.Count; changeNum++)
+            {
+                GPULaunch(BuildChanges, lp, m_DataSetDM.Ptr, m_ChangesDM.Ptr, m_DataItemsMapDM.Ptr, changesDataItems[changeNum], changesRanges[changeNum],
+                    changesOffsets[changeNum], changesErrorRanges[changeNum], changeNum);
+            }
+            //m_ChangesDataItemsDM.Dispose();
+            //m_ChangesRangesDM.Dispose();
+            m_ChangesDataItemsDM = null;
+            m_ChangesRangesDM = null;
+            //m_PredictionsDataItemsDM = GPUWorker.Malloc(predictionDataItems);
+            m_PredictionsRangesDM = GPUWorker.Malloc(predictionRanges);
+            //m_PredictionsOffsetsDM = GPUWorker.Malloc(predictionOffsets);
+            //m_PredictionsErrorRangesDM = GPUWorker.Malloc(predictionErrorRanges);
+            m_PredictionsDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_PredictionsNum]);
+            for (int predictionNum = 0; predictionNum < DSSettings.PredictionItems.Count; predictionNum++)
+            {
+                GPULaunch(BuildPredictions, lp, m_DataSetDM.Ptr, m_PredictionsDM.Ptr, m_DataItemsMapDM.Ptr, predictionDataItems[predictionNum], predictionRanges[predictionNum],
+                    predictionOffsets[predictionNum], predictionErrorRanges[predictionNum], predictionNum);
+            }
             if (debugMode)
             { // debug
                 byte[] changes = m_ChangesDM.Gather();
@@ -90,15 +108,11 @@ namespace StocksData
             }
 
             //Free no more needed memory
-            m_DataItemsMapDM.Dispose();
-            m_DataSetDM.Dispose();
-            m_ChangesDataItemsDM.Dispose();
-            m_ChangesRangesDM.Dispose();
+            //m_DataItemsMapDM.Dispose();
+            //m_DataSetDM.Dispose();
 
             m_DataItemsMapDM = null;
             m_DataSetDM = null;
-            m_ChangesDataItemsDM = null;
-            m_ChangesRangesDM = null;
 
             //Allocate memory for predictions caclucaltions
             m_PredictionResultsDM = GPUWorker.Malloc<double>(combinationsNum * m_PredictionsNum);
@@ -110,7 +124,7 @@ namespace StocksData
 
         public void FreeGPU()
         {
-            m_PredictionsDataItemsDM.Dispose();
+            //m_PredictionsDataItemsDM.Dispose();
             m_PredictionsRangesDM.Dispose();
             m_ChangesDM.Dispose();
             m_PredictionsDM.Dispose();
@@ -163,48 +177,42 @@ namespace StocksData
         #region Kernel Methods
 
         [Kernel]
-        public void BuildChanges(deviceptr<double> dataSet, deviceptr<byte> changes, deviceptr<int> dataItemsMap, deviceptr<int> changesDataItems, deviceptr<byte> changesRanges)
+        public void BuildChanges(deviceptr<double> dataSet, deviceptr<byte> changes, deviceptr<int> dataItemsMap, int changeDataItem, byte changeRange,
+            byte changeOffset, double changeErrorRange, int changeNum)
         {
             var dataRow = blockIdx.x * blockDim.x + threadIdx.x;
 
             deviceptr<byte> currentChanges = changes.Ptr(dataRow * m_ChangesNum);
             deviceptr<double> currentDataSet = dataSet.Ptr(dataRow * m_DataSetWidth);
 
-            for (int changeNum = 0; changeNum < m_ChangesNum; changeNum++)
-            {
-                int columnFrom = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 0];
-                int columnOf = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 1];
-                int fromRowOffset = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 2];
-                int ofRowOffset = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 3];
-                int isPositiveChange = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 4];
-                int offset = dataItemsMap[changesDataItems[changeNum] * m_MapLength + 5];
-                int range = changesRanges[changeNum];
+            int columnFrom = dataItemsMap[changeDataItem * m_MapLength + 0];
+            int columnOf = dataItemsMap[changeDataItem * m_MapLength + 1];
+            int fromRowOffset = dataItemsMap[changeDataItem * m_MapLength + 2];
+            int ofRowOffset = dataItemsMap[changeDataItem * m_MapLength + 3];
+            int isPositiveChange = dataItemsMap[changeDataItem * m_MapLength + 4];
+            int offset = dataItemsMap[changeDataItem * m_MapLength + 5];
 
-                currentChanges[changeNum] = (dataRow >= m_DataSetNumOfRows - range * 2) ?
-                        (byte)0 : IsChange(currentDataSet, range, columnFrom, columnOf, fromRowOffset, ofRowOffset, isPositiveChange, m_ErrorRange, -m_ErrorRange, offset);
+            currentChanges[changeNum] = (dataRow >= m_DataSetNumOfRows - (changeRange * 2 + changeOffset)) ?
+                    (byte)0 : IsChange(currentDataSet, changeRange, changeOffset, columnFrom, columnOf, fromRowOffset, ofRowOffset, isPositiveChange, changeErrorRange, -changeErrorRange, offset);
 
-            }
         }
 
         [Kernel]
-        public void BuildPredictions(deviceptr<double> dataSet, deviceptr<byte> predictions, deviceptr<int> dataItemsMap, deviceptr<int> predictionsDataItems, deviceptr<byte> predictionsRanges)
+        public void BuildPredictions(deviceptr<double> dataSet, deviceptr<byte> predictions, deviceptr<int> dataItemsMap, int predictionDataItem, byte predictionRange,
+            byte predictionOffset, double predictionErrorRange, int predictionNum)
         {
             var dataRow = blockIdx.x * blockDim.x + threadIdx.x;
             deviceptr<byte> currentPredictions = predictions.Ptr(dataRow * m_PredictionsNum);
             deviceptr<double> currentDataSet = dataSet.Ptr(dataRow * m_DataSetWidth);
 
-            for (int predictionNum = 0; predictionNum < m_PredictionsNum; predictionNum++)
-            {
-                int columnFrom = dataItemsMap[predictionsDataItems[predictionNum] * m_MapLength + 0];
-                int columnOf = dataItemsMap[predictionsDataItems[predictionNum] * m_MapLength + 1];
-                int fromRowOffset = dataItemsMap[predictionsDataItems[predictionNum] * m_MapLength + 2];
-                int ofRowOffset = dataItemsMap[predictionsDataItems[predictionNum] * m_MapLength + 3];
-                int isPositiveChange = dataItemsMap[predictionsDataItems[predictionNum] * m_MapLength + 4];
-                int range = predictionsRanges[predictionNum];
+                int columnFrom = dataItemsMap[predictionDataItem * m_MapLength + 0];
+                int columnOf = dataItemsMap[predictionDataItem * m_MapLength + 1];
+                int fromRowOffset = dataItemsMap[predictionDataItem * m_MapLength + 2];
+                int ofRowOffset = dataItemsMap[predictionDataItem * m_MapLength + 3];
+                int isPositiveChange = dataItemsMap[predictionDataItem * m_MapLength + 4];
 
-                currentPredictions[predictionNum] = (dataRow < range) ?
-                    (byte)0 : IsPrediction(currentDataSet, range, columnFrom, columnOf, fromRowOffset, ofRowOffset, isPositiveChange, m_ErrorRange, -m_ErrorRange);
-            }
+                currentPredictions[predictionNum] = (dataRow <= (predictionRange + predictionOffset)) ?
+                    (byte)0 : IsPrediction(currentDataSet, predictionRange, predictionOffset, columnFrom, columnOf, fromRowOffset, ofRowOffset, isPositiveChange, predictionErrorRange, -predictionErrorRange);
         }
 
         [Kernel]
@@ -279,42 +287,42 @@ namespace StocksData
             }
         }
 
-        private byte IsPrediction(deviceptr<double> dataSet, int range, int dataColumFrom, int dataColumOf, int fromRowOffset, int ofRowOffset, int isPositiveChange, 
+        private byte IsPrediction(deviceptr<double> dataSet, byte predictionRange, byte predictionOffset, int dataColumFrom, int dataColumOf, int fromRowOffset, int ofRowOffset, int isPositiveChange, 
             double biggerErrorBorder, double smallerErrorBorder)
         {
-            int ofRow = ofRowOffset * range;
-            int fromRow = fromRowOffset * range - range;
+            int ofRow = ofRowOffset * predictionRange + predictionOffset;
+            int fromRow = fromRowOffset * predictionRange - predictionRange + predictionOffset;
             double sumOf = 0;
             double sumFrom = 0;
-            for (int i = 0; i < range; i++)
+            for (int i = 0; i < predictionRange; i++)
             {
                 sumOf += dataSet[(ofRow + i) * m_DataSetWidth + dataColumOf];
                 sumFrom += dataSet[(fromRow + i) * m_DataSetWidth + dataColumFrom];
             }
 
             return (byte)((isPositiveChange == 1) ?
-                (((sumFrom - sumOf) / sumOf / range) > biggerErrorBorder) ? 1 : 0
+                (((sumFrom - sumOf) / sumOf / predictionRange) >= biggerErrorBorder) ? 1 : 0
                 :
-                (((sumFrom - sumOf) / sumOf / range) < smallerErrorBorder) ? 1 : 0);
+                (((sumFrom - sumOf) / sumOf / predictionRange) <= smallerErrorBorder) ? 1 : 0);
         }
 
-        private byte IsChange(deviceptr<double> dataSet, int range, int dataColumFrom, int dataColumOf,
-            int fromRowOffset, int ofRowOffset, int isPositiveChange, double biggerErrorBorder, double smallerErrorBorder, int offset)
+        private byte IsChange(deviceptr<double> dataSet, byte changeRange, byte changeOffset, int dataColumFrom, int dataColumOf, int fromRowOffset, int ofRowOffset, int isPositiveChange, double biggerErrorBorder,
+            double smallerErrorBorder, int offset)
         {
-            int ofRow = ofRowOffset * range + offset;
-            int fromRow = fromRowOffset * range + offset;
+            int ofRow = ofRowOffset * changeRange + offset + changeOffset;
+            int fromRow = fromRowOffset * changeRange + offset + changeOffset;
             double sumOf = 0;
             double sumFrom = 0;
-            for (int i = 0; i < range; i++)
+            for (int i = 0; i < changeRange; i++)
             {
                 sumOf += dataSet[(ofRow + i) * m_DataSetWidth + dataColumOf];
                 sumFrom += dataSet[(fromRow + i) * m_DataSetWidth + dataColumFrom];
             }
 
             return (byte)((isPositiveChange == 1) ?
-                (((sumFrom - sumOf) / sumOf / range) > biggerErrorBorder) ? 1 : 0
+                (((sumFrom - sumOf) / sumOf / changeRange) >= biggerErrorBorder) ? 1 : 0
                 :
-                (((sumFrom - sumOf) / sumOf / range) < smallerErrorBorder) ? 1 : 0);
+                (((sumFrom - sumOf) / sumOf / changeRange) <= smallerErrorBorder) ? 1 : 0);
         }
 
         private int[] GetDataItemsMap()

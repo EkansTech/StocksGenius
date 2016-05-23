@@ -11,8 +11,6 @@ namespace StocksSimulation
     {
         #region Properties
 
-        public int DataSetRow { get; set; }
-
         public DateTime Date { get; set; }
 
         public double RealMoney { get; set; }
@@ -25,9 +23,8 @@ namespace StocksSimulation
 
         #region Constructor
 
-        public SimRecord(int dataSetRow, DateTime date, double realMoney, double totalValue, int numOfInvestments)
+        public SimRecord(DateTime date, double realMoney, double totalValue, int numOfInvestments)
         {
-            DataSetRow = dataSetRow;
             Date = date;
             RealMoney = realMoney;
             TotalValue = totalValue;
@@ -40,6 +37,8 @@ namespace StocksSimulation
     public class SimRecorder : List<SimRecord>
     {
         #region Properties
+
+        public DateTime StartDate { get; set; }
 
         public double EffectivePredictionResult { get; set; }
 
@@ -81,6 +80,7 @@ namespace StocksSimulation
 
         public SimRecorder(int simulationRun)
         {
+            StartDate = DateTime.MinValue;
             EffectivePredictionResult = 0;
             MinProfitRatio = 0;
             MaxInvestmentsPerStock = 0;
@@ -104,6 +104,7 @@ namespace StocksSimulation
         {
             string fileName = Path.GetFileNameWithoutExtension(filePath);
             string[] fileProperties = fileName.Split('_');
+            StartDate = new DateTime(Convert.ToInt32(fileProperties[0].Split('.')[0]), Convert.ToInt32(fileProperties[0].Split('.')[1]), Convert.ToInt32(fileProperties[0].Split('.')[2]));
             SimulationRun = Convert.ToInt32(fileProperties[1]);
             MinPredictedRange = Convert.ToByte(fileProperties[2]);
             MaxPredictedRange = Convert.ToByte(fileProperties[3]);
@@ -125,9 +126,10 @@ namespace StocksSimulation
             LoadFromFile(filePath);
         }
 
-        public SimRecorder(double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, double maxLooseRatio, byte minPredictedRange, 
+        public SimRecorder(DateTime startDate, double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, double maxLooseRatio, byte minPredictedRange, 
             byte maxPredictedRange, int simulationRun, double predictionErrorRange, int minCombinationItemsNum, int maxCombinationItemsNum, int safeDaysNum, int maxNumOfInvestments)
         {
+            StartDate = startDate;
             EffectivePredictionResult = effectivePredictionResult;
             MinProfitRatio = minProfitRatio;
             MaxInvestmentsPerStock = maxInvestmentsPerStock;
@@ -146,12 +148,12 @@ namespace StocksSimulation
 
         #region Interface
 
-        public void AddRecord(int dataSetRow, DateTime date, double realMoney, double totalValue, int numOfInvestments)
+        public void AddRecord(DateTime date, double realMoney, double totalValue, int numOfInvestments)
         {
-            Add(new SimRecord(dataSetRow, date, realMoney, totalValue, numOfInvestments));
+            Add(new SimRecord(date, realMoney, totalValue, numOfInvestments));
         }
 
-        public void SaveToFile(string name, string folderPath, double maxTotalValue, double minTotalValue, int totalNumOfInvestments, double maxTotalValueLoose, int numOfGoodInvestments)
+        public void SaveToFile(string folderPath, double maxTotalValue, double minTotalValue, int totalNumOfInvestments, double maxTotalValueLoose, int numOfGoodInvestments)
         {
             if (SimulationRun == 0 && Directory.Exists(folderPath))
             {
@@ -160,9 +162,9 @@ namespace StocksSimulation
 
             Directory.CreateDirectory(folderPath);
 
-            string filePath = string.Format("{0}\\{1}_{2}_{3}_{4}_{5}_{6}_{7}_{8}_{9}_{10}_{11}_{12}_{13}_{14}_{15}_{16}_{17}_{18}.csv", 
-                folderPath, 
-                name, 
+            string filePath = string.Format("{0}\\{1}_{2}_{3}_{4}_{5}_{6}_{7}_{8}_{9}_{10}_{11}_{12}_{13}_{14}_{15}_{16}_{17}_{18}.csv",
+                folderPath,
+                StartDate.Year + "." + StartDate.Month + "." + StartDate.Day,
                 SimulationRun.ToString("0000"),
                 MinPredictedRange, 
                 MaxPredictedRange, 
@@ -187,7 +189,7 @@ namespace StocksSimulation
 
                 foreach (SimRecord record in this)
                 {
-                    writer.WriteLine("{0},{1},{2},{3},{4}", record.DataSetRow, record.Date.ToShortDateString(), record.RealMoney, record.TotalValue, record.NumOfInvestments);
+                    writer.WriteLine("{0},{1},{2},{3}", record.Date.ToShortDateString(), record.RealMoney, record.TotalValue, record.NumOfInvestments);
                 }
             }
         }
@@ -201,7 +203,7 @@ namespace StocksSimulation
                 {
                     string lineData = reader.ReadLine();
                     string[] data = lineData.Split(',');
-                    Add(new SimRecord(Convert.ToInt32(data[0]), Convert.ToDateTime(data[1]), Convert.ToDouble(data[2]), Convert.ToDouble(data[3]), Convert.ToInt32(data[4])));
+                    Add(new SimRecord(Convert.ToDateTime(data[0]), Convert.ToDouble(data[1]), Convert.ToDouble(data[2]), Convert.ToInt32(data[3])));
                 }
             }
         }
@@ -216,13 +218,14 @@ namespace StocksSimulation
 
             using (StreamWriter writer = new StreamWriter(string.Format("{0}\\{1}{2}.csv", workingDirectory, fileName, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
             {
-                writer.WriteLine("SimulationRun,MinCombinationItemsNum,MaxCombinationItemsNum,PredictionErrorRange,MinPredictedRange,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio" +
+                writer.WriteLine("SimulationRun,StartDate,MinCombinationItemsNum,MaxCombinationItemsNum,PredictionErrorRange,MinPredictedRange,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio" +
                     ",MaxInvestmentsPerStock,MaxLooseRatio,SafeDaysNum,MaxNumOfInvestments,MinTotalValue,MaxTotalValue,MaxTotalValueLoose,TotalNumOfInvestments,GoodInvestments,FinalValue,ProfitPerInvestment");
                 foreach (SimRecorder recorder in recorders)
                 {
-                    double profitPerInvestment = (recorder.TotalNumOfInvestments == 0) ? 0 : (double)recorder.Last().TotalValue / (double)recorder.TotalNumOfInvestments;
-                    writer.WriteLine("{0},{1},{2},{3}%,{4},{5},{6},{7}%,{8},{9}%,{10},{11},{12},{13},{14},{15},{16}%,{17},{18}",
+                    double profitPerInvestment = (recorder.TotalNumOfInvestments == 0) ? 0 : ((double)recorder.Last().TotalValue - SimSettings.RealMoneyStartValue) / (double)recorder.TotalNumOfInvestments;
+                    writer.WriteLine("{0},{1},{2},{3},{4}%,{5},{6},{7},{8}%,{9},{10}%,{11},{12},{13},{14},{15},{16},{17}%,{18},{19}",
                         recorder.SimulationRun,
+                        recorder.StartDate.ToShortDateString(),
                         recorder.MinCombinationItemsNum,
                         recorder.MaxCombinationItemsNum,
                         recorder.PredictionErrorRange * 100,

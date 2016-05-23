@@ -25,6 +25,10 @@ namespace StocksGenius
 
         public static string DataSetsCodesPrefix = "WIKI-";
 
+        public static DateTime PredictionsSince = new DateTime(2010, 1, 1);
+
+        public static int PredictionEveryXMonths = 3;
+
         public static DataSourceTypes DataSourceType = DataSourceTypes.Yahoo;
 
         public const string RootDiretory = @"C:\Ekans\Stocks\";

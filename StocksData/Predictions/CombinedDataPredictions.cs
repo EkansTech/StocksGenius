@@ -155,7 +155,7 @@ namespace StocksData
 
         public bool IsGoodPrediction(DataSet dataSet, CombinationItem changeItem, CombinationItem predictedItem, int dataRow, double upperErrorBorder, double lowerErrorBorder)
         {
-            if (!IsContainsPrediction(changeItem, dataRow + changeItem.Range - 1, upperErrorBorder, lowerErrorBorder))
+            if (!IsContainsPrediction(changeItem, dataRow + changeItem.Range - 1))
             {
                 return false;
             }

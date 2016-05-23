@@ -12,15 +12,19 @@ namespace StocksData
 
         public byte Range;
         public DataItem DataItem;
+        public byte Offset;
+        public double ErrorRange;
 
         #endregion
 
         #region Constructors
 
-        public CombinationItem(byte range, DataItem combination)
+        public CombinationItem(byte range, DataItem combination, byte offset, double errorRange)
         {
             Range = range;
             DataItem = combination;
+            Offset = offset;
+            ErrorRange = errorRange;
         }
 
         public CombinationItem(string combinationItemString)
@@ -28,15 +32,17 @@ namespace StocksData
             string[] stringParts = combinationItemString.Split('-');
             Range = Convert.ToByte(stringParts[0]);
             DataItem = (DataItem)Enum.Parse(typeof(DataItem), stringParts[1]);
+            Offset = Convert.ToByte(stringParts[2]);
+            ErrorRange = Convert.ToDouble(stringParts[3]);
         }
 
         #endregion
 
         #region Interface
 
-        public bool Is(DataItem dataItem, int range)
+        public bool Is(DataItem dataItem, int range, byte offset, double errorRange)
         {
-            return range == Range && dataItem == DataItem;
+            return range == Range && dataItem == DataItem && Offset == offset && ErrorRange == errorRange;
         }
 
         public ulong ToULong()
@@ -44,9 +50,9 @@ namespace StocksData
             return ((ulong)1) << (DSSettings.ChangeItemsMap[this]);
         }
 
-        static public CombinationItem Item(DataItem dataItem, byte range)
+        static public CombinationItem Item(DataItem dataItem, byte range, byte offset, double errorRange)
         {
-            return new CombinationItem(range, dataItem);
+            return new CombinationItem(range, dataItem, offset, errorRange);
         }
 
         static public List<CombinationItem> ULongToCombinationItems(ulong combination)
@@ -135,7 +141,7 @@ namespace StocksData
 
         public override string ToString()
         {
-            return Range.ToString() + "-" + DataItem.ToString();
+            return Range.ToString() + "-" + DataItem.ToString() + "-" + Offset.ToString() + "-" + ErrorRange.ToString();
         }
 
         #endregion

@@ -156,6 +156,52 @@ namespace StocksData
         }
 
 
+        public void BuildSimDataPredictions(DateTime startDate, int monthsJump)
+        {
+            string predictionsDirectory = MetaData.SimPredictionDir;
+            if (!Directory.Exists(predictionsDirectory))
+            {
+                Directory.CreateDirectory(predictionsDirectory);
+            }
+
+            while (startDate < DateTime.Today)
+            {
+                predictionsDirectory = MetaData.SimPredictionDir + startDate.ToShortDateString().Replace("/","_") + "\\";
+                if (!Directory.Exists(predictionsDirectory))
+                {
+                    Directory.CreateDirectory(predictionsDirectory);
+                }
+
+                Console.WriteLine("Predictions for {0}", startDate.ToShortDateString());
+                int dataSetNumber = 0;
+
+                double loadTime = 0;
+                double gpuTime = 0;
+                foreach (string dataSetCode in MetaData.Keys)
+                {
+                    Console.WriteLine("Current Stock: {0}", dataSetCode);
+                    Console.WriteLine("Completed {0}%", (((double)dataSetNumber) / (double)MetaData.Count * 100.0).ToString("0.00"));
+                    MetaData[dataSetCode].SimPredictionsDir = predictionsDirectory;
+
+                    DataSet dataSet = new DataSet(dataSetCode, MetaData[dataSetCode].DataSetFilePath, TestDataAction.LoadDataUpTo, startDate);
+                    DateTime timePoint = DateTime.Now;
+                    DataPredictions dataPredictions = new DataPredictions(dataSet, MetaData[dataSetCode].SimDataPredictionsFilePath, true);
+                    loadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
+                    gpuTime += dataPredictions.GPULoadTime;
+                    dataPredictions.SaveDataToFile(predictionsDirectory);
+
+                    dataSetNumber++;
+                }
+
+                Console.WriteLine(string.Format("Prediction time = {0}, GPU total time - {1}", loadTime / 1000, gpuTime / 1000));
+                Console.WriteLine();
+
+                startDate = startDate.AddMonths(monthsJump);
+            }
+            Console.ReadKey();
+        }
+
+
         public void BuildCombinedDataPredictions()
         {
             ReloadDataSets();
@@ -207,14 +253,6 @@ namespace StocksData
             Console.ReadKey();
 
             return;
-        }
-
-        public void AnalyzeChangesEffects()
-        {
-            string latestpredictionsDirectory = WorkingDirectory + DSSettings.LatestPredictionsDir;
-            string currentProject = WorkingDirectory.Split(Path.DirectorySeparatorChar).Last(x => !string.IsNullOrWhiteSpace(x));
-            string latestPredictionsFilePath = latestpredictionsDirectory + currentProject + DSSettings.LatestPredictionsSuffix + ".csv";
-            
         }
 
         public void BuildiForexPredictions()

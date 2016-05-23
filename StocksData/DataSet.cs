@@ -27,7 +27,22 @@ namespace StocksData
 
         #region Members
 
-        static List<string> m_ColumnNames = new List<string>() { "Date", "Open", "High", "Low", "Close", "Volume" };
+        static Dictionary<string, int> m_ColumnNamesMap = new Dictionary<string, int>()
+        {
+            { "date", (int)DataColumns.Date },
+            { "open", (int)DataColumns.Open },
+            { "openingprice", (int)DataColumns.Open },
+            { "high", (int)DataColumns.High },
+            { "dailyhigh", (int)DataColumns.High },
+            { "low", (int)DataColumns.Low },
+            { "dailylow", (int)DataColumns.Low },
+            { "close", (int)DataColumns.Close },
+            { "closingprice", (int)DataColumns.Close },
+            { "volume", (int)DataColumns.Volume },
+            { "volume(pcs.)", (int)DataColumns.Volume },
+        };
+
+        Dictionary<int, int> m_ColumnsMap = new Dictionary<int, int>();
 
         #endregion
 
@@ -55,7 +70,7 @@ namespace StocksData
         {
         }
 
-        public DataSet(string dataSetCode, string filePath, TestDataAction testDataAction = TestDataAction.None)
+        public DataSet(string dataSetCode, string filePath, TestDataAction testDataAction = TestDataAction.None, DateTime dateUpTo = default(DateTime))
         {
             LoadDataFromFile(filePath);
             m_DataSetCode = dataSetCode;
@@ -109,6 +124,17 @@ namespace StocksData
                         Clear();
                     }
                     break;
+                case TestDataAction.LoadDataUpTo:
+                    int rowNum = GetDayNum(dateUpTo);
+                    if (rowNum == -1)
+                    {
+                        Clear();
+                    }
+                    else
+                    {
+                        RemoveRange(0, rowNum * (int)DataColumns.NumOfColumns);
+                    }
+                    break;
             }
         }
 
@@ -127,8 +153,7 @@ namespace StocksData
                     case (int)DataColumns.Low: return base[index];
                     case (int)DataColumns.Volume: return base[index];
                     default:
-                        return base[index];
-                        
+                        return base[index];                        
                 }
             }
             set
@@ -216,7 +241,7 @@ namespace StocksData
             using (StreamReader csvFile = new StreamReader(filePath))
             {
                 // Read the first line and validate correctness of columns in the data file
-                ValidateColumnNames(csvFile.ReadLine());
+                MapColumnNames(csvFile.ReadLine());
 
                 while (!csvFile.EndOfStream)
                 {
@@ -232,23 +257,47 @@ namespace StocksData
             }
         }
 
+        public void SaveDataToFile(string filePath)
+        {
+            using (StreamWriter csvFile = new StreamWriter(filePath))
+            {
+                // Write the first line
+                csvFile.WriteLine(GetColumnNamesString());
+
+                for (int rowNum = 0; rowNum < NumOfRows; rowNum++)
+                {                    
+                    csvFile.WriteLine(GetDataString(rowNum));
+                }
+            }
+        }
+
         private bool Add(string dataLine)
         {
             string[] data = dataLine.Split(',');
+            if (data.Length < (int)DataColumns.NumOfColumns)
+            {
+                return false;
+            }
 
             List<double> newDateData = new List<double>();
 
-            Add(Convert.ToDateTime(data[0]).Date.Ticks);
-            
-            for (int i = 1; i < (int)DataColumns.NumOfColumns; i++)
-            {
-                if (string.IsNullOrWhiteSpace(data[i]))
+
+            foreach (int dataColumn in m_ColumnsMap.Keys.OrderBy(x => m_ColumnsMap[x]))
+            {               
+                if (string.IsNullOrWhiteSpace(data[dataColumn]) || ((int)DataColumns.Volume == m_ColumnsMap[dataColumn] && Convert.ToDouble(data[dataColumn]) == 0.0))
                 {
                     return false;
                 }
                 else
                 {
-                    newDateData.Add(Convert.ToDouble(data[i]));
+                    if (m_ColumnsMap[dataColumn] == (int)DataColumns.Date)
+                    {
+                        newDateData.Add(Convert.ToDateTime(data[dataColumn]).Date.Ticks);
+                    }
+                    else
+                    {
+                        newDateData.Add(Convert.ToDouble(data[dataColumn]));
+                    }
                 }
             }
 
@@ -302,22 +351,56 @@ namespace StocksData
         #endregion
 
         #region Private Methods
-        private void ValidateColumnNames(string columnNamesLine)
+        private void MapColumnNames(string columnNamesLine)
         {
             string[] columnNames = columnNamesLine.Split(',');
 
-            if (m_ColumnNames.Count != columnNames.Length)
+            for (int fileColumn = 0; fileColumn < columnNames.Length; fileColumn++)
             {
-                //throw new Exception(string.Format("Not compatible columns in the {0} data set", DataSetName));
-            }
-
-            for (int i = 0; i < m_ColumnNames.Count; i++)
-            {
-                if (!m_ColumnNames[i].ToLower().Equals(columnNames[i].ToLower().Trim()))
+                if (m_ColumnNamesMap.Keys.Contains(columnNames[fileColumn].ToLower()))
                 {
-                    throw new Exception(string.Format("Expected column {0] instead of {1] in the {2} data set", m_ColumnNames[i], columnNames[i], DataSetCode));
+                    m_ColumnsMap.Add(fileColumn, m_ColumnNamesMap[columnNames[fileColumn].ToLower()]);
                 }
             }
+
+            if (m_ColumnsMap.Count < (int)DataColumns.NumOfColumns)
+            {
+                throw new Exception();
+            }
+        }
+
+        private string GetDataString(int rowNum)
+        {
+            string dataLine = new DateTime((long)this[rowNum * (int)DataColumns.NumOfColumns]).ToShortDateString();
+            for (int dataColumn = 1; dataColumn < (int)DataColumns.NumOfColumns; dataColumn++)
+            {
+                dataLine += "," + this[rowNum * (int)DataColumns.NumOfColumns + dataColumn];
+            }
+
+            return dataLine;
+        }
+
+        private string GetColumnNamesString()
+        {
+            string columnNames = ((DataColumns)0).ToString();
+
+            for (int dataColumn = 1; dataColumn < (int)DataColumns.NumOfColumns; dataColumn++)
+            {
+                columnNames += "," + ((DataColumns)dataColumn).ToString();
+            }
+
+            return columnNames;
+        }
+
+        public bool ContainsTradeDay(DateTime day)
+        {
+            int dayNum = GetDayNum(day);
+            if (dayNum == -1)
+            {
+                return false;
+            }
+
+            return GetDate(dayNum) == day;
         }
 
         #endregion

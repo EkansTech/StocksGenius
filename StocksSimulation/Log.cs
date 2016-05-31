@@ -54,6 +54,15 @@ namespace StocksSimulation
             set { m_LogLevel = value; }
         }
 
+        private static bool m_IsActive = true;
+
+        public static bool IsActive
+        {
+            get { return m_IsActive; }
+            set { m_IsActive = value; }
+        }
+
+
 
 
         #endregion
@@ -62,11 +71,26 @@ namespace StocksSimulation
 
         public static void AddMessage(String format, params object[] args)
         {
+            if (!IsActive)
+            {
+                return;
+            }
             AddMessage(LogLevelType.Detailed, format, args);
         }
 
         public static void AddMessage(LogLevelType logLevel, String format, params object[] args)
         {
+            if (m_ConnectToConsole)
+            {
+                if ((int)logLevel >= (int)m_LogLevel)
+                {
+                    Console.WriteLine(format, args);
+                }
+            }
+            if (!IsActive)
+            {
+                return;
+            }
             m_LogMessages.Add(new LogMessage() { String = string.Format(format + Environment.NewLine, args), LogLevel = logLevel});
             if (m_ConnectToConsole)
             {

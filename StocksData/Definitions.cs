@@ -35,6 +35,7 @@ namespace StocksData
         LoadOnlyTestData,
         LoadWithoutTestData,
         LoadDataUpTo,
+        LoadRelevantMonths,
     }
 
     public enum DataSourceTypes
@@ -64,6 +65,14 @@ namespace StocksData
             IsPositiveChange = isPositiveChange;
             Offset = offset;
         }
+    }
+
+    public enum TimeType
+    {
+        Day,
+        Week,
+        Month,
+        Year
     }
 
     #endregion

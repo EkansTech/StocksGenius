@@ -48,9 +48,9 @@ namespace StocksGenius
         }
         
 
-        public void BuildSimPredictions()
+        public void BuildSimPredictions(string suffix = null)
         {
-            m_StocksData.BuildSimDataPredictions(SGSettings.PredictionsSince, SGSettings.PredictionEveryXMonths);
+            m_StocksData.BuildSimDataPredictions(SGSettings.PredictionsSince, SGSettings.PredictionEveryX, SGSettings.PredictionEveryXType,  SGSettings.PredictionsUpTo, SGSettings.RelevantDataType, SGSettings.DataRelevantX, SGSettings.DataRelevantXType, suffix);
         }
 
         public void GetActions()
@@ -80,7 +80,7 @@ namespace StocksGenius
             predictionsSimulator.Simulate();
 
             //Console.Write(Log.ToString());
-            Log.SaveLogToFile(SGSettings.Workspace + "PredictionsSimulator.log");
+            //Log.SaveLogToFile(SGSettings.Workspace + "PredictionsSimulator.log");
 
             SimRecorder.SaveSummary(SGSettings.Workspace, "PredicrionSimSummary");
 
@@ -100,32 +100,18 @@ namespace StocksGenius
 
         public void SimulateModel()
         {
-            //StockSimulation stockSimulation = new StockSimulation(m_StocksData.MetaData, SGSettings.Workspace);
-            ////analyzerSimulator.TestAnalyzeResults(stocksDataPath + iForexTestAnalyzerFolder);
-            ////Log.ConnectToConsole = false;
-            //stockSimulation.Simulate();
+            StockSimulation stockSimulation = new StockSimulation(m_StocksData.MetaData, SGSettings.Workspace);
+            //analyzerSimulator.TestAnalyzeResults(stocksDataPath + iForexTestAnalyzerFolder);
+            //Log.ConnectToConsole = false;
+            stockSimulation.Simulate();
 
-            ////Console.Write(Log.ToString());
+            //Console.Write(Log.ToString());
             //Log.SaveLogToFile(SGSettings.Workspace + "StocksSimulation.log");
 
-            //List<SimRecorder> recorders = new List<SimRecorder>();
-            //foreach (string filePath in Directory.GetFiles(SGSettings.Workspace + SimSettings.SimulationRecordsDirectory))
-            //{
-            //    recorders.Add(new SimRecorder(filePath));
-            //}
 
-            //using (StreamWriter writer = new StreamWriter(string.Format("{0}\\iForexSimSummary{1}.csv", SGSettings.Workspace, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
-            //{
-            //    writer.WriteLine("SimulationRun,MinPredictedRange,MaxPredictedRange,EffectivePredictionResult,MinProfitRatio,MaxInvestmentsPerStock,MaxLooseRatio"
-            //        + ",MinTotalProfit,MaxTotalProfit,TotalNumOfInvestments,Final Profit");
-            //    foreach (SimRecorder recorder in recorders)
-            //    {
-            //        writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10}", recorder.SimulationRun, recorder.MinPredictedRange, recorder.MaxPredictedRange, recorder.EffectivePredictionResult, recorder.MinProfitRatio,
-            //            recorder.MaxInvestmentsPerStock, recorder.MaxLooseRatio, recorder.MinTotalProfit, recorder.TotalNumOfInvestments, recorder.MaxTotalProfit, recorder.Last().RealMoney);
-            //    }
-            //}
+            SimRecorder.SaveSummary(SGSettings.Workspace, "StockSimSummary");
 
-            //return;
+            return;
         }
 
         public void AnalyzePredictions()

@@ -77,9 +77,35 @@ namespace StocksGenius
         {
             return Convert.ToInt32(IniReadValue(Section, Key));
         }
+        public bool IniReadBoolValue(string Section, string Key)
+        {
+            return Convert.ToBoolean(IniReadValue(Section, Key));
+        }
+        public byte IniReadByteValue(string Section, string Key)
+        {
+            return Convert.ToByte(IniReadValue(Section, Key));
+        }
         public DateTime IniReadDateTime(string Section, string Key)
         {
             return Convert.ToDateTime(IniReadValue(Section, Key));
+        }
+
+        public void IniReadDateTime(string Section, string Key, ref DateTime date)
+        {
+            string value = IniReadValue(Section, Key);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                date = Convert.ToDateTime(value);
+            }
+        }
+
+        public void IniReadEnum<EnumType>(string Section, string Key, ref EnumType enumValue)
+        {
+            string value = IniReadValue(Section, Key);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                enumValue = (EnumType)Enum.Parse(typeof(EnumType), value);
+            }
         }
     }
 }

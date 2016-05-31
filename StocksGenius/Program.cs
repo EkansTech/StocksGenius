@@ -34,6 +34,7 @@ namespace StocksGenius
                 Console.WriteLine("9. Run Investor With SimPredictions");
                 Console.WriteLine("10. Build Combined Predictions");
                 Console.WriteLine("11. Simulate Combined Predictions");
+                Console.WriteLine("12. Build Sim Predictions to Temp");
                 Console.WriteLine("0. To Exit");
 
                 string input = Console.ReadLine();
@@ -51,6 +52,7 @@ namespace StocksGenius
                     case "9": stockGenius.RunInvestor(true); break;
                     case "10": stockGenius.BuildCombinedPredictions(); break;
                     case "11": stockGenius.SimulateCombinedPredictions(); break;
+                    case "12": stockGenius.BuildSimPredictions("Temp"); break;
                     case "0": exit = true; break;
                     default:
                         break;
@@ -70,7 +72,12 @@ namespace StocksGenius
             DSSettings.PredictionMaxCombinationSize = settings.IniReadIntValue("Prediction", "PredictionMaxCombinationSize");
             DSSettings.DataRelevantSince = settings.IniReadDateTime("Prediction", "DataRelevantSince");
             SGSettings.PredictionsSince = settings.IniReadDateTime("Prediction", "PredictionsSince");
-            SGSettings.PredictionEveryXMonths = settings.IniReadIntValue("Prediction", "PredictionEveryXMonths");
+            settings.IniReadDateTime("Prediction", "PredictionsUpTo", ref SGSettings.PredictionsUpTo);
+            SGSettings.PredictionEveryX= settings.IniReadIntValue("Prediction", "PredictionEveryX");
+            settings.IniReadEnum<TimeType>("Prediction", "PredictionEveryXType", ref SGSettings.PredictionEveryXType);
+            SGSettings.DataRelevantX = settings.IniReadIntValue("Prediction", "DataRelevantX");
+            settings.IniReadEnum<TimeType>("Prediction", "DataRelevantXType", ref SGSettings.DataRelevantXType);
+            settings.IniReadEnum<TestDataAction>("Prediction", "RelevantDataType", ref SGSettings.RelevantDataType);
 
             SGSettings.EffectivePredictionResult = settings.IniReadDoubleValue("Investment", "EffectivePredictionResult");
             SGSettings.PredictionErrorRange = settings.IniReadDoubleValue("Investment", "PredictionErrorRange");
@@ -81,7 +88,14 @@ namespace StocksGenius
             SGSettings.InvestmentPerStock = settings.IniReadDoubleValue("Investment", "InvestmentPerStock");
 
             SimSettings.SimulateSince = settings.IniReadDateTime("Simulation", "SimulateSince");
-            SimSettings.SimulateEveryXMonths = settings.IniReadIntValue("Simulation", "SimulateEveryXMonths");
+            SimSettings.SimulateEveryX = settings.IniReadIntValue("Simulation", "SimulateEveryX");
+            settings.IniReadEnum<TimeType>("Simulation", "SimulateEveryXType", ref SimSettings.SimulateEveryXType);
+            settings.IniReadDateTime("Simulation", "SimulateUpTo", ref SimSettings.SimulateUpTo);
+            SimSettings.MinPredictedRange = settings.IniReadByteValue("Simulation", "MinPredictedRange");
+            SimSettings.MaxPredictedRange = settings.IniReadByteValue("Simulation", "MaxPredictedRange");
+            SimSettings.TestAllRanges = settings.IniReadBoolValue("Simulation", "TestAllRanges");
+            SimSettings.SimulatePerStock = settings.IniReadBoolValue("Simulation", "SimulatePerStock"); 
+
 
             SimSettings.BuySellPenalty = SGSettings.BuySellPenalty;
 

@@ -71,6 +71,7 @@
     <Compile Include="InvestmentAnalyzis.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StockRecorder.cs" />
     <Compile Include="SimSettings.cs" />
     <Compile Include="SimRecorder.cs" />
     <Compile Include="StockSimulation.cs" />

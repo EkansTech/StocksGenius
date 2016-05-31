@@ -35,4 +35,5 @@ namespace StocksSimulation
         MaxInvestmentLive,
         SafeMode,
     }
+
 }

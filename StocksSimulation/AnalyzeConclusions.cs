@@ -35,7 +35,7 @@ namespace StocksSimulation
 
         public double AverageCorrectness { get; set; }
 
-        public string DataSetName { get; }
+        public string DataSetName { get; set; }
 
         public bool IsPositiveInvestment
         {
@@ -50,6 +50,11 @@ namespace StocksSimulation
         #endregion
 
         #region Constructors
+
+        public Analyze()
+        {
+
+        }
 
         public Analyze(PredictionRecord record)
         {
@@ -191,7 +196,7 @@ namespace StocksSimulation
                 foreach (CombinationItem combinationItem in this[dataSet].Keys)
                 {
                     CombinationItem opposite = CombinationItem.Item(DSSettings.OppositeDataItems[combinationItem.DataItem], combinationItem.Range, combinationItem.Offset, combinationItem.ErrorRange);
-                    if (this[dataSet].ContainsKey(opposite) && this[dataSet][combinationItem].CompareTo(this[dataSet][opposite]) > 0)
+                    if (this[dataSet].ContainsKey(opposite))// && this[dataSet][combinationItem].CompareTo(this[dataSet][opposite]) > 0)
                     {
                         badPredictions.Add(combinationItem);
                     }

@@ -14,7 +14,6 @@ namespace StocksData
         private Dictionary<ulong /*combination*/, List<int>> m_PredictedCollections = null;
 
         private ulong[] m_GPUCombinations = null;
-        private byte[] m_GPUCombinationsItems = null;
         private int m_GPUCombinationNum = 0;
         private int m_GPUCyclesPerSize = 0;
         private Dictionary<byte, ulong[]> m_GPUBadCombinations = new Dictionary<byte, ulong[]>();
@@ -504,9 +503,7 @@ namespace StocksData
                     m_GPUBadSequenceNum[i] = 0;
                 }
                 m_GPUCyclesPerSize = 0;
-                m_GPUCombinationsItems = new byte[DSSettings.GPUCycleSize * combinationSize];
-                List<byte> currentCombinationItems = new List<byte>(combinationSize);
-                PredictGPU(combinationSize, currentCombinationItems);
+                PredictGPU(combinationSize);
                 int numOfCombinationsPerSize = DSSettings.GPUCycleSize * m_GPUCyclesPerSize + m_GPUCombinationNum;
                 RunGpuPredictionCycle(combinationSize);
                 Console.WriteLine("Number of combinations for size {0} is {1}", combinationSize, numOfCombinationsPerSize);
@@ -583,22 +580,38 @@ namespace StocksData
             return dataPredictionTest;
         }
 
-        private void PredictGPU(byte combinationSize, List<byte> currentCombinationItems, ulong combination = 0, byte combinationPart = 0, byte startPosition = 0)
+        private void PredictGPU(byte combinationSize, ulong combination = 0, byte combinationPart = 0, byte startPosition = 0)
         {
             if (combinationPart == combinationSize)
             {
-                AddGPUCombination(combination, combinationSize, currentCombinationItems);
+                AddGPUCombination(combination, combinationSize);
                 return;
             }
 
             for (byte i = startPosition; i < DSSettings.ChangeItems.Count - (combinationSize - combinationPart - 1); i++)
             {
-                if (i % 2 == 1 && currentCombinationItems.Contains((byte)(i - 1)) && i != 9 && i != 11)
+                if (i % 2 == 1 && ((combination & (((ulong)1) << (i - 1))) != 0))
                 {
                     continue;
                 }
-                combination |= DSSettings.ChangeItems[i].ToULong();
-                currentCombinationItems.Add(i);
+                if (DSSettings.UncombinedChangeItems.ContainsKey(i))
+                {
+                    bool isUncombinable = false;
+                    for (int j = 0; j < DSSettings.UncombinedChangeItems[i].Count; j++)
+                    {
+                        if ((combination & (((ulong)1) << DSSettings.UncombinedChangeItems[i][j])) != 0)
+                        {
+                            isUncombinable = true;
+                            break;
+                        }
+                    }
+
+                    if (isUncombinable)
+                    {
+                        continue;
+                    }
+                }
+                combination |= (((ulong)1) << i);
 
                 if (m_GPUOnBadSequence[combinationPart + 1])
                 {
@@ -624,21 +637,15 @@ namespace StocksData
                 }
                 else
                 {
-                    PredictGPU(combinationSize, currentCombinationItems, combination, (byte)(combinationPart + 1), (byte)(i + 1));
+                    PredictGPU(combinationSize, combination, (byte)(combinationPart + 1), (byte)(i + 1));
                 }
 
-                combination &= ~DSSettings.ChangeItems[i].ToULong();
-                currentCombinationItems.Remove(i);
+                combination &= ~(((ulong)1) << i);
             }
         }
 
-        private void AddGPUCombination(ulong combination, byte combinationSize, List<byte> currentCombinationItems)
+        private void AddGPUCombination(ulong combination, byte combinationSize)
         {
-            for (int i = 0; i < combinationSize; i++)
-            {
-                m_GPUCombinationsItems[m_GPUCombinationNum * combinationSize + i] = currentCombinationItems[i];
-            }
-
             m_GPUCombinations[m_GPUCombinationNum] = combination;
             m_GPUCombinationNum++;
 
@@ -652,7 +659,7 @@ namespace StocksData
         {
             m_GPUCyclesPerSize++;
             DateTime timePoint = DateTime.Now;
-            double[] predictionResultsArray = m_GPUPredictions.PredictCombinations(m_GPUCombinationsItems, 
+            double[] predictionResultsArray = m_GPUPredictions.PredictCombinations(m_GPUCombinations, 
                 combinationSize, m_GPUCombinationNum, MinimumChangesForPrediction, DSSettings.EffectivePredictionResult);
             GPULoadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
             Console.WriteLine("{0} seconds for {1} combinations", (DateTime.Now - timePoint).TotalMilliseconds / 1000, m_GPUCombinationNum);
@@ -665,7 +672,7 @@ namespace StocksData
                 bool badCombination = true;
                 for (int resultNum = 0; resultNum < DSSettings.PredictionItems.Count; resultNum++)
                 {
-                    if (predictionResults[combinationNum * DSSettings.PredictionItems.Count + resultNum] > DSSettings.EffectivePredictionResult)
+                    if (predictionResults[combinationNum * DSSettings.PredictionItems.Count + resultNum] >= DSSettings.EffectivePredictionResult)
                     {
                         Add(m_GPUCombinations[combinationNum], predictionResults.GetRange(combinationNum * DSSettings.PredictionItems.Count, DSSettings.PredictionItems.Count));
                         badCombination = false;

@@ -156,17 +156,22 @@ namespace StocksData
         }
 
 
-        public void BuildSimDataPredictions(DateTime startDate, int monthsJump)
+        public void BuildSimDataPredictions(DateTime startDate, int jump, TimeType predictionTimeType, DateTime endDate, TestDataAction testDataType = TestDataAction.LoadDataUpTo, int relevantMonths = 60, TimeType dataTimeType = TimeType.Month, string suffix = null)
         {
-            string predictionsDirectory = MetaData.SimPredictionDir;
-            if (!Directory.Exists(predictionsDirectory))
+            string rootPredictionsDirectory = MetaData.SimPredictionDir + (suffix != null ? suffix + "\\" : string.Empty);
+            if (!Directory.Exists(rootPredictionsDirectory))
             {
-                Directory.CreateDirectory(predictionsDirectory);
+                Directory.CreateDirectory(rootPredictionsDirectory);
+            }
+            Dictionary<string, DataSet> dataSets = new Dictionary<string, DataSet>();
+            foreach (string dataSetCode in MetaData.Keys)
+            {
+                dataSets.Add(dataSetCode, new DataSet(dataSetCode, MetaData[dataSetCode].DataSetFilePath));
             }
 
-            while (startDate < DateTime.Today)
+            while (startDate < endDate)
             {
-                predictionsDirectory = MetaData.SimPredictionDir + startDate.ToShortDateString().Replace("/","_") + "\\";
+                string predictionsDirectory = rootPredictionsDirectory + startDate.ToShortDateString().Replace("/","_") + "\\";
                 if (!Directory.Exists(predictionsDirectory))
                 {
                     Directory.CreateDirectory(predictionsDirectory);
@@ -183,7 +188,7 @@ namespace StocksData
                     Console.WriteLine("Completed {0}%", (((double)dataSetNumber) / (double)MetaData.Count * 100.0).ToString("0.00"));
                     MetaData[dataSetCode].SimPredictionsDir = predictionsDirectory;
 
-                    DataSet dataSet = new DataSet(dataSetCode, MetaData[dataSetCode].DataSetFilePath, TestDataAction.LoadDataUpTo, startDate);
+                    DataSet dataSet = new DataSet(dataSets[dataSetCode], testDataType, startDate, relevantMonths);
                     DateTime timePoint = DateTime.Now;
                     DataPredictions dataPredictions = new DataPredictions(dataSet, MetaData[dataSetCode].SimDataPredictionsFilePath, true);
                     loadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
@@ -196,7 +201,21 @@ namespace StocksData
                 Console.WriteLine(string.Format("Prediction time = {0}, GPU total time - {1}", loadTime / 1000, gpuTime / 1000));
                 Console.WriteLine();
 
-                startDate = startDate.AddMonths(monthsJump);
+                switch (predictionTimeType)
+                {
+                    case TimeType.Day:
+                        startDate = startDate.AddDays(jump);
+                        break;
+                    case TimeType.Week:
+                        startDate = startDate.AddDays(jump * 7);
+                        break;
+                    case TimeType.Month:
+                        startDate = startDate.AddMonths(jump);
+                        break;
+                    case TimeType.Year:
+                        startDate = startDate.AddYears(jump);
+                        break;
+                }
             }
             Console.ReadKey();
         }

@@ -27,7 +27,17 @@ namespace StocksGenius
 
         public static DateTime PredictionsSince = new DateTime(2010, 1, 1);
 
-        public static int PredictionEveryXMonths = 3;
+        public static DateTime PredictionsUpTo = DateTime.Today;
+
+        public static int DataRelevantX = 1;
+
+        public static TimeType DataRelevantXType = TimeType.Month;
+
+        public static int PredictionEveryX = 3;
+
+        public static TimeType PredictionEveryXType = TimeType.Month;
+
+        public static TestDataAction RelevantDataType = TestDataAction.None;
 
         public static DataSourceTypes DataSourceType = DataSourceTypes.Yahoo;
 

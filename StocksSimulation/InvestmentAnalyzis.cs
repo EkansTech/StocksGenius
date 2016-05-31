@@ -70,7 +70,7 @@ namespace StocksSimulation
 
             if (SimulationRun == 0)
             {
-                SubDirectory = WorkingDirectory + m_DirectoryName + DateTime.Now.ToString().Replace(':', '_').Replace('/', '_') + "\\";
+                SubDirectory = WorkingDirectory + m_DirectoryName + SimSettings.SimStartTime.ToString().Replace(':', '_').Replace('/', '_') + "\\";
                 Directory.CreateDirectory(SubDirectory);
             }
 

@@ -28,16 +28,10 @@ namespace StocksData
 
         private DeviceMemory<int> m_DataItemsMapDM;
         private DeviceMemory<double> m_DataSetDM;
-        private DeviceMemory<int> m_ChangesDataItemsDM;
-        private DeviceMemory<byte> m_ChangesRangesDM;
-        private DeviceMemory<byte> m_ChangesOffsetsDM;
-        private DeviceMemory<double> m_ChangesErrorRangesDM;
-        private DeviceMemory<int> m_PredictionsDataItemsDM;
         private DeviceMemory<byte> m_PredictionsRangesDM;
-        private DeviceMemory<byte> m_PredictionsOffsetsDM;
-        private DeviceMemory<double> m_PredictionsErrorRangesDM;
         private DeviceMemory<byte> m_ChangesDM;
         private DeviceMemory<byte> m_PredictionsDM;
+        private DeviceMemory<byte> m_CombinationItems;
         private DeviceMemory<double> m_PredictionResultsDM;
 
         #endregion
@@ -54,10 +48,6 @@ namespace StocksData
             // Allocate memory for initialization
             m_DataItemsMapDM = GPUWorker.Malloc(GetDataItemsMap());
             m_DataSetDM = GPUWorker.Malloc(dataset);
-            //m_ChangesDataItemsDM = GPUWorker.Malloc(changesDataItems);
-            //m_ChangesRangesDM = GPUWorker.Malloc(changesRanges);
-            //m_ChangesOffsetsDM = GPUWorker.Malloc(changesOffsets);
-            //m_ChangesErrorRangesDM = GPUWorker.Malloc(changesErrorRanges);
             m_ChangesDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_ChangesNum]);
 
 
@@ -71,14 +61,8 @@ namespace StocksData
                 GPULaunch(BuildChanges, lp, m_DataSetDM.Ptr, m_ChangesDM.Ptr, m_DataItemsMapDM.Ptr, changesDataItems[changeNum], changesRanges[changeNum],
                     changesOffsets[changeNum], changesErrorRanges[changeNum], changeNum);
             }
-            //m_ChangesDataItemsDM.Dispose();
-            //m_ChangesRangesDM.Dispose();
-            m_ChangesDataItemsDM = null;
-            m_ChangesRangesDM = null;
-            //m_PredictionsDataItemsDM = GPUWorker.Malloc(predictionDataItems);
+
             m_PredictionsRangesDM = GPUWorker.Malloc(predictionRanges);
-            //m_PredictionsOffsetsDM = GPUWorker.Malloc(predictionOffsets);
-            //m_PredictionsErrorRangesDM = GPUWorker.Malloc(predictionErrorRanges);
             m_PredictionsDM = GPUWorker.Malloc(new byte[m_DataSetNumOfRows * m_PredictionsNum]);
             for (int predictionNum = 0; predictionNum < DSSettings.PredictionItems.Count; predictionNum++)
             {
@@ -116,6 +100,7 @@ namespace StocksData
 
             //Allocate memory for predictions caclucaltions
             m_PredictionResultsDM = GPUWorker.Malloc<double>(combinationsNum * m_PredictionsNum);
+            m_CombinationItems = GPUWorker.Malloc<byte>(combinationsNum * DSSettings.PredictionMaxCombinationSize);
         }
 
         #endregion
@@ -130,14 +115,13 @@ namespace StocksData
             m_PredictionsDM.Dispose();
             m_PredictionResultsDM.Dispose();
 
-            m_PredictionsDataItemsDM = null;
             m_PredictionsRangesDM = null;
             m_ChangesDM = null;
             m_PredictionsDM = null;
             m_PredictionResultsDM = null;
         }
 
-        public double[] PredictCombinations(byte[] combinations, byte combinationSize, int combinationsNum, int minimumChangesForPrediction, double minimumRelevantPredictionResult)
+        public double[] PredictCombinations(ulong[] combinations, byte combinationSize, int combinationsNum, int minimumChangesForPrediction, double minimumRelevantPredictionResult)
         {
             //using (var dPredictionsSum = GPUWorker.Malloc<short>(combinationsNum * m_PredictionsNum))
             using (var dCombinations = GPUWorker.Malloc(combinations))
@@ -148,7 +132,7 @@ namespace StocksData
                 var block = new dim3(blockX);//, blockY);
                 var grid = new dim3(gridX);
                 var lp = new LaunchParam(grid, block);
-                GPULaunch(PredictCombinations, lp, dCombinations.Ptr, combinationSize, m_PredictionResultsDM.Ptr, m_ChangesDM.Ptr, m_PredictionsDM.Ptr,
+                GPULaunch(PredictCombinations, lp, dCombinations.Ptr, combinationSize, m_PredictionResultsDM.Ptr, m_CombinationItems.Ptr, m_ChangesDM.Ptr, m_PredictionsDM.Ptr,
                     m_PredictionsRangesDM.Ptr, combinationsNum, minimumChangesForPrediction, minimumRelevantPredictionResult);//, dPredictionsSum.Ptr);
                 return m_PredictionResultsDM.Gather();
             }
@@ -216,14 +200,29 @@ namespace StocksData
         }
 
         [Kernel]
-        public void PredictCombinations(deviceptr<byte> combinationItems, byte combinationSize, deviceptr<double> predictionResults, deviceptr<byte> changes, deviceptr<byte> predictions, 
-            deviceptr<byte> predictionRanges, int combinationsNum, int minimumChangesForPrediction, double minimumRelevantPredictionResult)//, deviceptr<short> predictionsSum)
+        public void PredictCombinations(deviceptr<ulong> combinations, byte combinationSize, deviceptr<double> predictionResults, deviceptr<byte> combinationItems, deviceptr<byte> changes, 
+            deviceptr<byte> predictions, deviceptr<byte> predictionRanges, int combinationsNum, int minimumChangesForPrediction, double minimumRelevantPredictionResult)
         {
             var combinationNum = blockIdx.x * blockDim.x + threadIdx.x;
 
             if (combinationNum < combinationsNum)
             {
-                deviceptr<byte> threadCombinationItems = combinationItems.Ptr(combinationNum * combinationSize);
+                var currentCombinationItems = combinationItems.Ptr(combinationNum * DSSettings.PredictionMaxCombinationSize);
+                byte numOfItems = 0;
+
+                for (byte i = 0; i < m_ChangesNum && numOfItems < combinationSize; i++)
+                {
+                    if ((combinations[combinationNum] & (((ulong)1) << i)) != 0)
+                    {
+                        currentCombinationItems[numOfItems] = i;
+                        numOfItems++;
+                        if (numOfItems == combinationSize)
+                        {
+                            break;
+                        }
+                    }
+                }
+
                 //deviceptr<short> threadPredictionsSum = predictionsSum.Ptr(combinationNum * m_PredictionsNum);
                 var threadPredictionsSum = __local__.Array<short>(m_PredictionsNum);
 
@@ -238,7 +237,7 @@ namespace StocksData
                     short change = 1;
                     for (byte itemNum = 0; itemNum < combinationSize; itemNum++)
                     {
-                        change *= changes[rowNum * m_ChangesNum + threadCombinationItems[itemNum]];
+                        change *= changes[rowNum * m_ChangesNum + currentCombinationItems[itemNum]];
                     }
 
                     changesSum += change;

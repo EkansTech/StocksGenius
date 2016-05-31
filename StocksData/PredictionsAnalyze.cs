@@ -100,17 +100,24 @@ namespace StocksData
         {
         }
 
-        public static void AnalyzePredictions(string workingDirectory, DataSetsMetaData metadata)
+        public static void AnalyzePredictions(string workingDirectory, DataSetsMetaData metaData)
         {
             Dictionary<string, PredictionsAnalyze> predictionsAnalyzes = new Dictionary<string, PredictionsAnalyze>();
-            foreach (string dataSetCode in metadata.Keys)
-            {
-                DataPredictions dataPredictions = new DataPredictions(metadata[dataSetCode].DataPredictionsFilePath);
 
-                PredictionsAnalyze predictionsAnalyze = new PredictionsAnalyze(dataPredictions);
-                predictionsAnalyzes.Add(dataSetCode, predictionsAnalyze);
-                predictionsAnalyze.SaveToFile();
+            foreach (string predictionsDirectory in Directory.GetDirectories(metaData.SimPredictionDir))
+            {
+
+                foreach (string dataSetCode in metaData.Keys)
+                {
+                    metaData[dataSetCode].SimPredictionsDir = predictionsDirectory + "\\";
+                    DataPredictions dataPredictions = new DataPredictions(metaData[dataSetCode].SimDataPredictionsFilePath);
+
+                    PredictionsAnalyze predictionsAnalyze = new PredictionsAnalyze(dataPredictions);
+                    predictionsAnalyzes.Add(dataSetCode, predictionsAnalyze);
+                    predictionsAnalyze.SaveToFile();                    
+                }
             }
+                
 
             SaveSummary(predictionsAnalyzes, workingDirectory);
         }

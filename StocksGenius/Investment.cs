@@ -261,13 +261,13 @@ namespace StocksGenius
                 return;
             }
 
-            ActionReason releaseReason = IsTimeToRelease(day);
-            if (releaseReason != ActionReason.NoReason)
-            {
-                Action = ActionType.Released;
-                ActionReason = releaseReason;
-                return;
-            }
+            //ActionReason releaseReason = IsTimeToRelease(day);
+            //if (releaseReason != ActionReason.NoReason)
+            //{
+            //    Action = ActionType.Released;
+            //    ActionReason = releaseReason;
+            //    return;
+            //}
         }
 
         public double UpdateAccountOnRelease(double balance)

@@ -58,8 +58,55 @@ namespace StocksData
 
         public static Dictionary<CombinationItem, byte> ChangeItemsMap
         {
-            get { return (m_ChangeItemsMap == null) ? m_ChangeItemsMap = ChangeItems.Select(x => (byte)ChangeItems.IndexOf(x)).ToDictionary(x => ChangeItems[x]) : m_ChangeItemsMap; }
+            get
+            {
+                if (m_ChangeItemsMap == null)
+                {
+                    m_ChangeItemsMap = new Dictionary<CombinationItem, byte>();
+                    for (byte i = 0; i < ChangeItems.Count; i++)
+                    {
+                        m_ChangeItemsMap.Add(ChangeItems[i], i);
+
+                    }
+                }
+
+                return m_ChangeItemsMap;
+            }
         }
+
+        private static Dictionary<byte, List<byte>> m_UncombinedChangeItems = null;
+
+        public static Dictionary<byte, List<byte>> UncombinedChangeItems
+        {
+            get
+            {
+                if (m_UncombinedChangeItems == null)
+                {
+                    m_UncombinedChangeItems = new Dictionary<byte, List<byte>>();
+
+                    for (byte i = 0; i < ChangeItems.Count; i++)
+                    {
+                        for (byte j = i; j < ChangeItems.Count; j++)
+                        {
+                            if (ChangeItems[i].DataItem == ChangeItems[j].DataItem
+                                && ChangeItems[i].Range == ChangeItems[j].Range
+                                && ChangeItems[i].Offset == ChangeItems[j].Offset
+                                && ChangeItems[i].ErrorRange < ChangeItems[j].ErrorRange)
+                            {
+                                if (!m_UncombinedChangeItems.ContainsKey(j))
+                                {
+                                    m_UncombinedChangeItems.Add(j, new List<byte>());
+                                }
+
+                                m_UncombinedChangeItems[j].Add(i);
+                            }
+                        }
+                    }
+                }
+                return m_UncombinedChangeItems;
+            }
+        }
+
 
         private static Dictionary<ulong, CombinationItem> m_ULongToCombinationItemMap = null;
 

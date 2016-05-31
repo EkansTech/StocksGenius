@@ -44,6 +44,8 @@ namespace StocksData
 
         Dictionary<int, int> m_ColumnsMap = new Dictionary<int, int>();
 
+        Dictionary<DateTime, int> m_DateMap = new Dictionary<DateTime, int>();
+
         #endregion
 
         #region Properties
@@ -70,7 +72,7 @@ namespace StocksData
         {
         }
 
-        public DataSet(string dataSetCode, string filePath, TestDataAction testDataAction = TestDataAction.None, DateTime dateUpTo = default(DateTime))
+        public DataSet(string dataSetCode, string filePath, TestDataAction testDataAction = TestDataAction.None, DateTime dateUpTo = default(DateTime), int relevantX = 60, TimeType timeType = TimeType.Month)
         {
             LoadDataFromFile(filePath);
             m_DataSetCode = dataSetCode;
@@ -135,7 +137,149 @@ namespace StocksData
                         RemoveRange(0, rowNum * (int)DataColumns.NumOfColumns);
                     }
                     break;
+                case TestDataAction.LoadRelevantMonths:
+                    rowNum = GetDayNum(dateUpTo);
+                    if (rowNum == -1)
+                    {
+                        Clear();
+                    }
+                    else
+                    {
+                        RemoveRange(0, rowNum * (int)DataColumns.NumOfColumns);
+                        switch (timeType)
+                        {
+                            case TimeType.Day:
+                                rowNum = GetDayNum(dateUpTo.AddMonths(-relevantX));
+                                break;
+                            case TimeType.Week:
+                                rowNum = GetDayNum(dateUpTo) + relevantX * 5;
+                                break;
+                            case TimeType.Month:
+                                rowNum = GetDayNum(dateUpTo) + relevantX;
+                                break;
+                            case TimeType.Year:
+                                rowNum = GetDayNum(dateUpTo.AddYears(-relevantX));
+                                break;
+                        }
+
+                        if (rowNum == -1 || rowNum * (int)DataColumns.NumOfColumns > Count)
+                        {
+                            Clear();
+                        }
+                        else
+                        {
+                            RemoveRange(rowNum * (int)DataColumns.NumOfColumns, Count - rowNum * (int)DataColumns.NumOfColumns);
+                        }
+                    }
+                    break;
             }
+
+            MapDates();
+        }
+
+        public DataSet(DataSet dataSet, TestDataAction testDataAction = TestDataAction.None, DateTime dateUpTo = default(DateTime), int relevantX = 60, TimeType timeType = TimeType.Month)
+        {
+            m_DataSetCode = dataSet.DataSetCode;
+            AddRange(dataSet);
+
+            int cellNum = 0;
+            long sinceTicks = DSSettings.DataRelevantSince.Ticks;
+            for (cellNum = 0; cellNum < Count; cellNum += (int)DataColumns.NumOfColumns)
+            {
+                if (sinceTicks > this[cellNum])
+                {
+                    break;
+                }
+            }
+
+            if (cellNum < Count)
+            {
+                RemoveRange(cellNum, Count - cellNum);
+            }
+
+            switch (testDataAction)
+            {
+                case TestDataAction.None:
+                    break;
+                case TestDataAction.LoadLimitedPredictionData:
+                    if (Count >= DSSettings.TestRange * (int)DataColumns.NumOfColumns)
+                    {
+                        RemoveRange(0, DSSettings.TestRange * (int)DataColumns.NumOfColumns);
+                    }
+                    else
+                    {
+                        Clear();
+                    }
+                    if (Count >= DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns)
+                    {
+                        RemoveRange(DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns, Count - DSSettings.DataSetForPredictionsSize * (int)DataColumns.NumOfColumns);
+                    }
+                    break;
+                case TestDataAction.LoadOnlyTestData:
+                    if (Count > DSSettings.TestMinSize * (int)DataColumns.NumOfColumns)
+                    {
+                        RemoveRange(DSSettings.TestMinSize * (int)DataColumns.NumOfColumns, Count - DSSettings.TestMinSize * (int)DataColumns.NumOfColumns);
+                    }
+                    break;
+                case TestDataAction.LoadWithoutTestData:
+                    if (Count >= DSSettings.TestRange * (int)DataColumns.NumOfColumns)
+                    {
+                        RemoveRange(0, DSSettings.TestRange * (int)DataColumns.NumOfColumns);
+                    }
+                    else
+                    {
+                        Clear();
+                    }
+                    break;
+                case TestDataAction.LoadDataUpTo:
+                    int rowNum = GetDayNum(dateUpTo);
+                    if (rowNum == -1)
+                    {
+                        Clear();
+                    }
+                    else
+                    {
+                        RemoveRange(0, rowNum * (int)DataColumns.NumOfColumns);
+                    }
+                    break;
+                case TestDataAction.LoadRelevantMonths:
+                    rowNum = GetDayNum(dateUpTo);
+                    if (rowNum == -1)
+                    {
+                        Clear();
+                    }
+                    else
+                    {
+                        RemoveRange(0, rowNum * (int)DataColumns.NumOfColumns);
+                        switch (timeType)
+                        {
+                            case TimeType.Day:
+                                rowNum = GetDayNum(dateUpTo.AddMonths(-relevantX));
+                                break;
+                            case TimeType.Week:
+                                rowNum = GetDayNum(dateUpTo) + relevantX * 5;
+                                break;
+                            case TimeType.Month:
+                                rowNum = GetDayNum(dateUpTo) + relevantX;
+                                break;
+                            case TimeType.Year:
+                                rowNum = GetDayNum(dateUpTo.AddYears(-relevantX));
+                                break;
+                        }
+
+                        if (rowNum == -1)
+                        {
+                            Clear();
+                        }
+                        else if (rowNum * (int)DataColumns.NumOfColumns <= Count)
+                        {
+                            RemoveRange(rowNum * (int)DataColumns.NumOfColumns, Count - rowNum * (int)DataColumns.NumOfColumns);
+                        }
+                    }
+                    break;
+            }
+
+            MapDates();
         }
 
         #endregion
@@ -169,13 +313,12 @@ namespace StocksData
 
         public int GetDayNum(DateTime date)
         {
-            for (int i = 0; i < NumOfRows; i++)
+            if (m_DateMap.ContainsKey(date))
             {
-                if (GetDate(i) <= date)
-                {
-                    return i;
-                }
+                return m_DateMap[date];
             }
+
+            MapDates();
 
             return -1;
         }
@@ -325,6 +468,7 @@ namespace StocksData
             InsertRange(0, todayData);
 
             Console.WriteLine("{0} Contains new open data for {1}", DataSetCode, date.ToShortDateString());
+            MapDates();
         }
 
         public override string ToString()
@@ -335,6 +479,7 @@ namespace StocksData
         internal void DeleteRows(DateTime date)
         {
             RemoveRange(0, GetDayNum(date) * (int)DataColumns.NumOfColumns);
+            MapDates();
         }
 
         internal void CleanTodayData()
@@ -346,6 +491,26 @@ namespace StocksData
                     this[i] = 0.0;
                 }
             }
+        }
+
+        public bool ContainsTradeDay(DateTime day)
+        {
+            if (!m_DateMap.Keys.Contains(day))
+            {
+                return false;
+            }
+
+            if (m_DateMap.Keys.First() == day)
+            {
+                return true;
+            }
+
+            if (m_DateMap[day] == m_DateMap[day.AddDays(-1)])
+            {
+                return false;
+            }
+
+            return true;
         }
 
         #endregion
@@ -392,15 +557,25 @@ namespace StocksData
             return columnNames;
         }
 
-        public bool ContainsTradeDay(DateTime day)
+        private void MapDates()
         {
-            int dayNum = GetDayNum(day);
-            if (dayNum == -1)
-            {
-                return false;
-            }
+            m_DateMap.Clear();
+            DateTime lastDate = new DateTime((long)this[(int)DataColumns.Date]);
+            DateTime firstDate = new DateTime((long)this[Count - (int)DataColumns.NumOfColumns + (int)DataColumns.Date]);
 
-            return GetDate(dayNum) == day;
+            int rownNum = NumOfRows - 1;
+            for (DateTime dateTime = firstDate; dateTime <= lastDate; dateTime = dateTime.AddDays(1))
+            {
+                if (new DateTime((long)this[rownNum * (int)DataColumns.NumOfColumns + (int)DataColumns.Date]) != dateTime)
+                {
+                    m_DateMap.Add(dateTime, rownNum + 1);
+                }
+                else
+                {
+                    m_DateMap.Add(dateTime, rownNum);
+                    rownNum--;
+                }
+            }
         }
 
         #endregion

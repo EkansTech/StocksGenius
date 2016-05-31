@@ -78,7 +78,7 @@ namespace StocksSimulation
             RealMoney = realMoney;
             Analyze = analyze;
             IsEndOfInvestment = false;
-            InvestmentType = (analyze.IsPositiveInvestment) ? BuySell.Buy : BuySell.Sell; // Test opposite decision
+            InvestmentType = (analyze.IsPositiveInvestment) ? PredictionsSimulator.InvertInvestments ? BuySell.Sell : BuySell.Buy : PredictionsSimulator.InvertInvestments ? BuySell.Buy : BuySell.Sell; // Test opposite decision
             InvestedMoney = GetInvestmentMoney(InvestedPrice, InvestmentType);
             Action = ActionType.Created;
             ActionReason = ActionReason.NoReason;
@@ -173,48 +173,50 @@ namespace StocksSimulation
             return BuySell.None;
         }
 
-        public void UpdateInvestment(DateTime day, double totalValue, double stockTotalProfit)
+        public void UpdateInvestment(DateTime day, double totalValue, double realMoney, double stockTotalProfit)
         {
             Action = ActionType.NoAction;
             TotalValue = totalValue;
             StockTotalProfit = stockTotalProfit;
             Profit = GetProfit(day);
             InvestmentValue = GetInvestmentValue(day);
+            ReleaseDay = DataSet.GetDayNum(day);
+            RealMoney = realMoney;
 
-            if (DataSet.GetDayNum(day) == 0)
+            if (DataSet.GetDate(0) == day)
             {
+                IsEndOfInvestment = true;
                 Action = ActionType.Released;
                 ActionReason = ActionReason.EndOfTrade;
-                IsEndOfInvestment = true;
                 return;
             }
 
-            if (InvestmentType == BuySell.Sell)
-            {
-                if (DataSet.GetLastChange(day, DataSet.DataColumns.Open) > 0)
-                {
-                    Action = ActionType.Continued;
-                    ActionReason = ActionReason.SamePredictions;
-                    return;
-                }
-            }
-            else if (InvestmentType == BuySell.Buy)
-            {
-                if (DataSet.GetLastChange(day, DataSet.DataColumns.Open) < 0)
-                {
-                    Action = ActionType.Continued;
-                    ActionReason = ActionReason.SamePredictions;
-                    return;
-                }
-            }
-
-            if (InvestmentDay - DataSet.GetDayNum(day) >= 1)
+            BuySell releaseAction = (InvestmentType == BuySell.Buy) ? BuySell.Sell : BuySell.Buy;
+            double releaseMoney = GetInvestmentMoney(PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
+            double profitRatio = Profit / InvestedMoney;
+            if (profitRatio >= StockSimulation.MinProfitRatio)
             {
                 IsEndOfInvestment = true;
                 Action = ActionType.Released;
-                ActionReason = ActionReason.EndOfPeriod;
+                ActionReason = ActionReason.GoodProfit;
+                return;
             }
 
+            if (profitRatio <= StockSimulation.MaxLooseRatio)
+            {
+                IsEndOfInvestment = true;
+                Action = ActionType.Released;
+                ActionReason = ActionReason.BadLoose;
+                return;
+            }
+
+            //if (InvestmentDay - ReleaseDay >= StockSimulation.MaxDaysUntilProfit)
+            //{
+            //    IsEndOfInvestment = true;
+            //    Action = ActionType.Released;
+            //    ActionReason = ActionReason.BadLoose;
+            //    return;
+            //}
         }
 
         public void UpdateInvestment(DailyAnalyzes dailyAnalyzes, DateTime day, double totalValue, double realMoney, double stockTotalProfit)
@@ -246,53 +248,82 @@ namespace StocksSimulation
 
             int daysLeft = PredictedChange.Range - (CountDay - DataSet.GetDayNum(day));
 
-            if (dailyAnalyzes.ContainsKey(DataSet))
-            {
-                var dataSetAnalyzes = dailyAnalyzes[DataSet].Values.OrderBy(x => x.PredictedChange.Range);
-                if ((InvestmentType == BuySell.Buy && dataSetAnalyzes.First().IsNegativeInvestment)
-                    || (InvestmentType == BuySell.Sell && dataSetAnalyzes.First().IsPositiveInvestment))
-                {
-                    IsEndOfInvestment = true;
-                    Action = ActionType.Released;
-                    ActionReason = ActionReason.PredictionInverse;
-                    return;
-                }
-                else if ((InvestmentType == BuySell.Buy && dataSetAnalyzes.First().IsPositiveInvestment)
-                    || (InvestmentType == BuySell.Sell && dataSetAnalyzes.First().IsNegativeInvestment))
-                {
-                    releaseReason = IsTimeToRelease(DataSet.GetDayNum(day));
-                    if (releaseReason != ActionReason.NoReason)
-                    {
-                        IsEndOfInvestment = true;
-                        Action = ActionType.Released;
-                        ActionReason = releaseReason;
-                        return;
-                    }
-                    
-                    Action = ActionType.Continued;
-                    ActionReason = ActionReason.SamePredictions;
-                    CountDay = DataSet.GetDayNum(day);
-                    PredictedChange = dataSetAnalyzes.First().PredictedChange;
-                    return;
-                }
-            }
-
-            releaseReason = IsTimeToRelease(DataSet.GetDayNum(day));
-            if (releaseReason != ActionReason.NoReason)
-            {
-                IsEndOfInvestment = true;
-                Action = ActionType.Released;
-                ActionReason = releaseReason;
-                return;
-            }
-
             if (daysLeft <= 0)
             {
-                IsEndOfInvestment = true;
-                Action = ActionType.Released;
-                ActionReason = ActionReason.EndOfPeriod;
+                if (dailyAnalyzes.ContainsKey(DataSet))
+                {
+                    var dataSetAnalyzes = dailyAnalyzes[DataSet];
+                    if ((PredictionsSimulator.InvertInvestments && (InvestmentType == BuySell.Sell && dataSetAnalyzes.ContainsPositiveInvestmens)
+                        || (InvestmentType == BuySell.Buy && dataSetAnalyzes.ContainsNegativeInvestmens))
+                        || (!PredictionsSimulator.InvertInvestments && (InvestmentType == BuySell.Buy && dataSetAnalyzes.ContainsPositiveInvestmens)
+                        || (InvestmentType == BuySell.Sell && dataSetAnalyzes.ContainsNegativeInvestmens)))
+                    {
+                        //releaseReason = IsTimeToRelease(DataSet.GetDayNum(day));
+                        //if (releaseReason != ActionReason.NoReason)
+                        //{
+                        //    IsEndOfInvestment = true;
+                        //    Action = ActionType.Released;
+                        //    ActionReason = releaseReason;
+                        //    return;
+                        //}
+
+                        Action = ActionType.Continued;
+                        ActionReason = ActionReason.SamePredictions;
+                        CountDay = DataSet.GetDayNum(day);
+                        PredictedChange = dataSetAnalyzes.Keys.First();
+                        Analyze = dataSetAnalyzes[PredictedChange];
+                        return;
+                    }
+                    IsEndOfInvestment = true;
+                    Action = ActionType.Released;
+                    ActionReason = ActionReason.EndOfPeriod;
+                }
+
                 return;
             }
+
+            Action = ActionType.NoAction;
+
+            //if (dailyAnalyzes.ContainsKey(DataSet))
+            //{
+            //    var dataSetAnalyzes = dailyAnalyzes[DataSet];
+            //    if ((InvestmentType == BuySell.Buy && dataSetAnalyzes.ContainsNegativeInvestmens)
+            //        || (InvestmentType == BuySell.Sell && dataSetAnalyzes.ContainsPositiveInvestmens))
+            //    {
+            //        IsEndOfInvestment = true;
+            //        Action = ActionType.Released;
+            //        ActionReason = ActionReason.PredictionInverse;
+            //        return;
+            //    }
+            //    else if ((InvestmentType == BuySell.Buy && dataSetAnalyzes.ContainsPositiveInvestmens)
+            //        || (InvestmentType == BuySell.Sell && dataSetAnalyzes.ContainsNegativeInvestmens))
+            //    {
+            //        releaseReason = IsTimeToRelease(DataSet.GetDayNum(day));
+            //        if (releaseReason != ActionReason.NoReason)
+            //        {
+            //            IsEndOfInvestment = true;
+            //            Action = ActionType.Released;
+            //            ActionReason = releaseReason;
+            //            return;
+            //        }
+
+            //        Action = ActionType.Continued;
+            //        ActionReason = ActionReason.SamePredictions;
+            //        CountDay = DataSet.GetDayNum(day);
+            //        PredictedChange = dataSetAnalyzes.Keys.First();
+            //        Analyze = dataSetAnalyzes[PredictedChange];
+            //        return;
+            //    }
+            //}
+
+            //releaseReason = IsTimeToRelease(DataSet.GetDayNum(day));
+            //if (releaseReason != ActionReason.NoReason)
+            //{
+            //    IsEndOfInvestment = true;
+            //    Action = ActionType.Released;
+            //    ActionReason = releaseReason;
+            //    return;
+            //}
 
             //if (profit > 0)
             //{
@@ -395,7 +426,7 @@ namespace StocksSimulation
             double profitRatio = Profit / InvestedMoney;
             if (profitRatio > PredictionsSimulator.MinProfitRatio)
             {
-                //return ActionReason.GoodProfit;
+                return ActionReason.GoodProfit;
             }
 
             //if (OnLooseSaving && profitRatio > AnalyzerSimulator.MaxLooseRatio / 2)

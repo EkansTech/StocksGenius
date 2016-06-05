@@ -19,22 +19,6 @@ namespace StocksGenius
 
         public static StocksData.StocksData StocksData { get; set; }
 
-        private double m_AccountBallance;
-
-        public double AccountBalance
-        {
-            get { return m_AccountBallance; }
-            set { m_AccountBallance = value; }
-        }
-
-        private double m_TotalProfit;
-
-        public double TotalProfit
-        {
-            get { return m_TotalProfit; }
-            set { m_TotalProfit = value; }
-        }
-
         private double m_RealMoney;
 
         public double RealMoney
@@ -65,31 +49,47 @@ namespace StocksGenius
             set { m_LastTradeDate = value; }
         }
 
-        private DailyAnalyzes m_DailyAnalyzes;
+        private DateTime m_Today = DateTime.Today; 
 
-        public DailyAnalyzes DailyAnalyzes
+        public DateTime Today
         {
-            get { if (m_DailyAnalyzes == null) { m_DailyAnalyzes = GetPredictionsConclusions(); } return m_DailyAnalyzes; }
-            set { m_DailyAnalyzes = value; }
+            get { return m_Today; }
+            set { m_Today = value; }
         }
 
-        private bool m_UseSimPredictions;
-
-        public bool UseSimPredictions
+        public double InvestmentsValue
         {
-            get { return m_UseSimPredictions; }
-            set { m_UseSimPredictions = value; }
+            get
+            {
+                return ActiveInvestments.Sum(x => x.GetInvestmentValue(Today));
+            }
         }
-        
+
+        public double TotalValue
+        {
+            get
+            {
+                return m_RealMoney + InvestmentsValue;
+            }
+        }
+
+        public double MoneyToInvest
+        {
+            get
+            {
+                return m_RealMoney + ActiveInvestments.Sum(x => x.GetProfit(m_Today));// - ActiveInvestments.Sum(x => x.InvestedMoney * SGSettings.SafesForStockRate);
+            }
+        }
+
+
         #endregion
 
         #region Constructors
 
-        public Investor(StocksData.StocksData stocksData, bool useSimPredictions = false)
+        public Investor(StocksData.StocksData stocksData)
         {
-            m_UseSimPredictions = useSimPredictions;
             StocksData = stocksData;
-            StocksData.ReloadDataSets();
+            stocksData.LoadDataSets();
 
             foreach (string dataSetName in stocksData.DataSets.Keys)
             {
@@ -112,22 +112,19 @@ namespace StocksGenius
                 Console.WriteLine("Error: Not all datasets are synchronized");
             }
 
-            m_DailyAnalyzes = null;
-
             bool exit = false;
 
             while (!exit)
             {
                 Console.WriteLine("Select an action:");
                 Console.WriteLine("1. Show Active Investments");
-                Console.WriteLine("2. Show Predictions");
-                Console.WriteLine("3. Release Investments");
-                Console.WriteLine("4. New Investment Actions");
-                Console.WriteLine("5. Save Investor State");
-                Console.WriteLine("6. Go To Date");
-                Console.WriteLine("7. Show Status");
-                Console.WriteLine("8. Get Today Open Data");
-                Console.WriteLine("9. ResetInvestorState");
+                Console.WriteLine("2. Release Investments");
+                Console.WriteLine("3. New Investment Actions");
+                Console.WriteLine("4. Save Investor State");
+                Console.WriteLine("5. Go To Date");
+                Console.WriteLine("6. Show Status");
+                Console.WriteLine("7. Get Today Open Data");
+                Console.WriteLine("8. ResetInvestorState");
                 Console.WriteLine("0. Back");
 
                 string input = Console.ReadLine();
@@ -135,14 +132,13 @@ namespace StocksGenius
                 switch (input)
                 {
                     case "1": ShowActiveInvestments(); break;
-                    case "2": ShowPredictions(); break;
-                    case "3": ReleaseInvestments(); break;
-                    case "4": NewInvestments(); break;
-                    case "5": SaveInvestorState(); break;
-                    case "6": GoToDate(); break;
-                    case "7": ShowStatus(); break;
-                    case "8": GetTodayOpenData(); break;
-                    case "9": ResetInvestorState(); break;
+                    case "2": ReleaseInvestments(); break;
+                    case "3": NewInvestments(); break;
+                    case "4": SaveInvestorState(); break;
+                    case "5": GoToDate(); break;
+                    case "6": ShowStatus(); break;
+                    case "7": GetTodayOpenData(); break;
+                    case "8": ResetInvestorState(); break;
                     case "0": exit = true; break;
                     default:
                         break;
@@ -154,8 +150,6 @@ namespace StocksGenius
 
         private void ResetInvestorState()
         {
-            m_AccountBallance = 0.0;
-            m_TotalProfit = 0.0;
             m_LastTradeDate = DateTime.MinValue;
             m_RealMoney = 2500.0;
 
@@ -188,9 +182,7 @@ namespace StocksGenius
 
         private void ShowStatus()
         {
-            double investmentsValue = ActiveInvestments.Sum(x => x.InvestmentValue); 
-            Console.WriteLine("Account Ballance: {0}, Num of investments: {1}, Total profit: {2}", m_AccountBallance, NumOfInvestments, m_TotalProfit);
-            Console.WriteLine("Real Money: {0}, Investments value: {1}, Total value {2}", m_RealMoney, investmentsValue, m_RealMoney + investmentsValue);
+            Console.WriteLine("Num of investments: {0}, Real Money: {1}, Investments value: {2}, Total value {3},  MoneyToInvest {4}", NumOfInvestments, m_RealMoney, InvestmentsValue, TotalValue, MoneyToInvest);
             Console.WriteLine("Stocks Profit:");
             foreach (string dataSetName in m_StocksTotalProfit.Keys)
             {
@@ -202,8 +194,6 @@ namespace StocksGenius
         {
             IniFile investorSettings = new IniFile(SGSettings.Workspace + SGSettings.InvestorIni);
 
-            m_AccountBallance = investorSettings.IniReadDoubleValue("General", "AccountBalance");
-            m_TotalProfit = investorSettings.IniReadDoubleValue("General", "TotalProfit");
             m_LastTradeDate = investorSettings.IniReadDateTime("General", "LastTradeDate");
             m_RealMoney = investorSettings.IniReadDoubleValue("General", "RealMoney");
 
@@ -218,15 +208,15 @@ namespace StocksGenius
                 m_StocksTotalProfit[dataSetName] = investorSettings.IniReadDoubleValue("StocksProfit", dataSetName);
             }
 
+            m_Today = m_LastTradeDate;
         }
 
         private void SaveInvestorState()
         {
-            m_LastTradeDate = StocksData.DataSets.Values.First().GetDate(0);
+            m_LastTradeDate = m_Today;
             IniFile investorSettings = new IniFile(SGSettings.Workspace + SGSettings.InvestorIni);
 
-            investorSettings.IniWriteValue("General", "AccountBalance", m_AccountBallance);
-            investorSettings.IniWriteValue("General", "TotalProfit", m_TotalProfit);
+            investorSettings.IniWriteValue("General", "TotalValue", TotalValue);
             investorSettings.IniWriteValue("General", "LastTradeDate", m_LastTradeDate);
             investorSettings.IniWriteValue("General", "RealMoney", m_RealMoney);
 
@@ -235,7 +225,7 @@ namespace StocksGenius
             {
                 investments.AddRange(ReleasedInvestments);
             }
-            investments.SaveToFile(SGSettings.InvestmentsFile);
+            investments.SaveToFile(m_Today, SGSettings.InvestmentsFile);
 
             foreach (string dataSetName in m_StocksTotalProfit.Keys)
             {
@@ -247,22 +237,8 @@ namespace StocksGenius
         {
             foreach (Investment investment in ActiveInvestments)
             {
-                Console.WriteLine("ID: {0}, DS: {1}, Type: {2}, Ammount: {3}, Current Profit: {4}, PredictedChange: {5}, Live length: {6}", 
-                    investment.ID, investment.DataSetName, investment.InvestmentType, investment.Ammount, investment.Profit, investment.PredictedChange.ToString(), investment.GetLiveLength());
-            }
-        }
-
-        public void ShowPredictions()
-        {
-            Console.WriteLine("Predictions:");
-            foreach (string dataSetName in DailyAnalyzes.Keys)
-            {
-                Console.WriteLine(dataSetName + ":");
-                foreach (CombinationItem predictedChange in DailyAnalyzes[dataSetName].Keys.OrderBy(x => x.Range))
-                {
-                    Console.WriteLine("\tRange: {0}, Change: {1}, Average Corectness: {2}, Num Of Predictions: {3}", predictedChange.Range, predictedChange.DataItem,
-                        DailyAnalyzes[dataSetName][predictedChange].AverageCorrectness, DailyAnalyzes[dataSetName][predictedChange].NumOfPredictions);
-                }
+                Console.WriteLine("ID: {0}, DS: {1}, Type: {2}, Ammount: {3}, Current Value: {4}, Num Of {5}: {6}, Live length: {7}", investment.ID, StocksData.MetaData[investment.DataSetCode].Name, investment.InvestmentType, 
+                    investment.Ammount, investment.GetInvestmentValue(m_Today), investment.InvestmentType == BuySell.Buy ? "Downs" : "Ups", investment.Analyze.NumOfPredictions, investment.GetLiveLength(m_Today));
             }
         }
 
@@ -270,25 +246,13 @@ namespace StocksGenius
         {
             foreach (Investment activeInvestment in ActiveInvestments)
             {
-                Console.WriteLine("ID: {0}, DS: {1}, Type: {2}, Ammount: {3}, Current Profit: {4}, PredictedChange: {5}, Live length: {6}",
-                    activeInvestment.ID, activeInvestment.DataSetName, activeInvestment.InvestmentType, activeInvestment.Ammount, activeInvestment.Profit,
-                    activeInvestment.PredictedChange.ToString(), activeInvestment.GetLiveLength());
-                
-                if (!DailyAnalyzes.ContainsKey(activeInvestment.DataSetName))
-                {
-                    Console.WriteLine("No Predictions");
-                    continue;
-                }
-
-                foreach (Analyze analyze in DailyAnalyzes[activeInvestment.DataSetName].Values.OrderBy(x => x.PredictedChange.Range))
-                {
-                    Console.WriteLine("\tRange: {0}, Change: {1}, Average Corectness: {2}, Num Of Predictions: {3}", analyze.PredictedChange.Range, analyze.PredictedChange.DataItem,
-                        analyze.AverageCorrectness, analyze.NumOfPredictions);
-                }
+                double profitRatio = activeInvestment.GetProfit(m_Today) / activeInvestment.InvestedMoney;
+                Console.WriteLine("ID: {0}, DS: {1}, Type: {2}, Ammount: {3}, Current Profit: {4}, Num Of {5}: {6}, Live length: {7}, Profit {8}%", activeInvestment.ID, StocksData.MetaData[activeInvestment.DataSetCode].Name,
+                activeInvestment.InvestmentType, activeInvestment.Ammount, activeInvestment.GetProfit(m_Today), activeInvestment.InvestmentType == BuySell.Buy ? "Downs" : "Ups", 
+                activeInvestment.Analyze.NumOfPredictions, activeInvestment.GetLiveLength(m_Today), (profitRatio * 100.0).ToString("0.00"));
             }
 
-            double investmentsValue = ActiveInvestments.Sum(x => x.InvestmentValue);
-            Console.WriteLine("Num of investments: {0}, Real Money: {1}, Investments value: {2}, Total value {3}", NumOfInvestments, m_RealMoney, investmentsValue, m_RealMoney + investmentsValue);
+            Console.WriteLine("Num of investments: {0}, Real Money: {1}, Investments value: {2}, Total value {3},  MoneyToInvest {4}", NumOfInvestments, m_RealMoney, InvestmentsValue, TotalValue, MoneyToInvest);
 
             Console.WriteLine("Enter investment ID to Release");
             int id = Convert.ToInt32(Console.ReadLine());
@@ -299,131 +263,171 @@ namespace StocksGenius
                 return;
             }
 
-            m_AccountBallance = investment.UpdateAccountOnRelease(m_AccountBallance);
-            m_StocksTotalProfit[investment.DataSetName] = investment.Release(ref m_TotalProfit, m_StocksTotalProfit[investment.DataSetName]);
-            investment.UpdateRealMoneyOnRelease(ref m_RealMoney);
-
-            Log.AddMessage("Released investment of {0} with prediction {1}:", investment.DataSetName, investment.PredictedChange.ToString());
-            Log.AddMessage("AccountBalance {0}, release profit {1}, total profit {2}, correctness {3}, {4} predictions", m_AccountBallance.ToString("0.00"),
-                investment.Profit.ToString("0.00"), TotalProfit.ToString("0.00"), investment.Analyze.AverageCorrectness.ToString("0.00"), investment.Analyze.NumOfPredictions);
+            m_StocksTotalProfit[investment.DataSetCode] = investment.Release(m_Today, m_StocksTotalProfit[investment.DataSetCode]);
+            investment.UpdateRealMoneyOnRelease(m_Today, ref m_RealMoney);
 
             ActiveInvestments.Remove(investment);
             ReleasedInvestments.Add(investment);
+
+            Log.AddMessage("Released investment of {0}: {1}, Num of {2} {3}, Change of {4}%, Profit {5}", StocksData.MetaData[investment.DataSetCode].Name, investment.InvestmentType, 
+                investment.Analyze.IsPositiveInvestment ? "Downs" : "Ups", investment.Analyze.NumOfPredictions, (investment.Analyze.AverageCorrectness * 100).ToString("0.00"), investment.GetProfit(m_Today));
+            Console.WriteLine("Num of investments: {0}, Real Money: {1}, Investments value: {2}, Total value {3},  MoneyToInvest {4}", NumOfInvestments, m_RealMoney, InvestmentsValue, TotalValue, MoneyToInvest);
         }
 
         private void NewInvestments()
         {
-            List<string> dataSets = DailyAnalyzes.Keys.ToList();
-            Dictionary<int, Analyze> actionToAnalyzeMap = new Dictionary<int, Analyze>();
-            int i = 1;
-            foreach (string dataSetName in DailyAnalyzes.Keys)
+            List<string> dataSets = GetTradableDataSets();
+
+            List<Analyze> potentialInvestments = new List<Analyze>();
+            foreach (string dataSetCode in dataSets)
             {
-                Console.WriteLine("{0} stock, current num of investments is {1}", dataSetName, ActiveInvestments.Where(x => x.DataSetName.Equals(dataSetName)).Count());
-               
-                foreach (Analyze analyze in DailyAnalyzes[dataSetName].Values.OrderBy(x => x.PredictedChange.Range))
+                DataSet dataSet = StocksData.DataSets[dataSetCode];
+                for (int numOfDowns = 0; numOfDowns < 100; numOfDowns++)
                 {
-                    Console.WriteLine("\t(Action {0} - {1}). Prediction: {2}, Average Corectness: {3}, Num Of Predictions: {4}", i, (analyze.IsPositiveInvestment) ? BuySell.Buy : BuySell.Sell,
-                        analyze.PredictedChange.ToString(), analyze.AverageCorrectness, analyze.NumOfPredictions);
-                    actionToAnalyzeMap.Add(i, analyze);
-                    i++;
-                }                
+                    int dayNum = dataSet.GetDayNum(m_Today);
+                    if (dataSet.NumOfRows > dayNum + numOfDowns + 1 && (dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfDowns + 1, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfDowns + 1, DataSet.DataColumns.Open) < 0)
+                    {
+                    }
+                    else
+                    {
+                        if (numOfDowns > 0 && (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open) < SGSettings.MinChangeForDown)
+                        {
+                            Analyze analyze = new Analyze()
+                            {
+                                AverageCorrectness = (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open),
+                                DataSetCode = dataSet.DataSetCode,
+                                NumOfPredictions = numOfDowns,
+                                PredictedChange = new CombinationItem(1, DataItem.OpenUp, 0, 0)
+                            };
+                            potentialInvestments.Add(analyze);
+                        }
+                        else
+                        {
+
+                        }
+                        break;
+                    }
+                }
+
+                for (int numOfUps = 0; numOfUps < 100; numOfUps++)
+                {
+                    int dayNum = dataSet.GetDayNum(m_Today);
+                    if (dataSet.NumOfRows > dayNum + numOfUps + 1 && (dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfUps + 1, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfUps + 1, DataSet.DataColumns.Open) > 0)
+                    {
+                    }
+                    else
+                    {
+                        if (numOfUps > 0 && (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open) > SGSettings.MinChangeForUp)
+                        {
+                            Analyze analyze = new Analyze()
+                            {
+                                DataSetCode = dataSet.DataSetCode,
+                                NumOfPredictions = numOfUps,
+                                PredictedChange = new CombinationItem(1, DataItem.OpenDown, 0, 0),
+                                AverageCorrectness = (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open),
+                            };
+                            potentialInvestments.Add(analyze);
+                        }
+                        else
+                        {
+
+                        }
+                        break;
+                    }
+                }        
             }
 
-            double investmentsValue = ActiveInvestments.Sum(x => x.InvestmentValue);
-            Console.WriteLine("Num of investments: {0}, Real Money: {1}, Investments value: {2}, Total value {3}", NumOfInvestments, m_RealMoney, investmentsValue, m_RealMoney + investmentsValue);
+            potentialInvestments = potentialInvestments.OrderByDescending(x => x.AverageCorrectness > 0 ? x.AverageCorrectness : -x.AverageCorrectness).ToList();
+            Dictionary<int, Analyze> actionsMap = potentialInvestments.ToDictionary(x => potentialInvestments.IndexOf(x) + 1);
+            foreach (int analyzeNum in actionsMap.Keys)
+            {
+                Analyze analyze = actionsMap[analyzeNum];
+                Console.WriteLine("{0}: DS {1}, {2}, Num of {3} {4}, Change of {5}%", analyzeNum, StocksData.MetaData[analyze.DataSetCode].Name, analyze.IsPositiveInvestment ? "Buy" : "Sell",
+                    analyze.IsPositiveInvestment ? "Downs" : "Ups", analyze.NumOfPredictions, (analyze.AverageCorrectness * 100).ToString("0.00"));
+            }
+
+            Console.WriteLine("Num of investments: {0}, Real Money: {1}, Investments value: {2}, Total value {3},  MoneyToInvest {4}", NumOfInvestments, m_RealMoney, InvestmentsValue, TotalValue, MoneyToInvest);
 
             Console.WriteLine("Select Investment Action:");
             int action = Convert.ToInt32(Console.ReadLine());
-            
-            if (!actionToAnalyzeMap.ContainsKey(action))
+
+            if (!actionsMap.ContainsKey(action))
             {
                 Console.WriteLine("Error: Wrong Action Number");
                 return;
             }
 
-            Analyze selectedAnalyze = actionToAnalyzeMap[action];
-            DataSet priceDataSet = StocksData.PriceDataSets[selectedAnalyze.DataSetName];
+            double y = SGSettings.InvestmentPerStock;
+            Console.WriteLine("Select Money: 1. {0}, 2. {1}, 3. {2}, 4. {3}, 5. {4}, 6. {5}, 7. {6}, 8. {7}, 9. {8}, 10. {9}",
+                y, y * 2, y * 4, y * 8, y * 16, y * 32, y * 64, y * 128, y * 256, y * 512);
 
-            Investment investment = new Investment(selectedAnalyze, priceDataSet.GetDate(0), m_AccountBallance, m_TotalProfit, m_StocksTotalProfit[priceDataSet.DataSetCode]);
+            double investingMoney = Convert.ToInt32(Console.ReadLine());
+            for (int i = 0; i < investingMoney - 1; i++)
+            {
+                y *= 2;
+            }
+            Analyze selectedAnalyze = actionsMap[action];
 
-            m_AccountBallance = investment.UpdateAccountOnInvestment(m_AccountBallance);
-            investment.UpdateRealMoneyOnInvestment(ref m_RealMoney);
+            Investment investment = new Investment(selectedAnalyze, m_Today, m_StocksTotalProfit[selectedAnalyze.DataSetCode], y);
+
+            investment.UpdateRealMoneyOnInvestment(m_Today, ref m_RealMoney);
             ActiveInvestments.Add(investment);
 
-            Console.WriteLine("New investment of {0} with prediction {1}, num of investments {2}:", investment.DataSetName, investment.PredictedChange.ToString(), ActiveInvestments.Count);
-            Console.WriteLine("Account balance {0}, {1} {2} shares, price {3}", m_AccountBallance, (investment.InvestmentType == BuySell.Buy) ? "bought" : "sold", investment.Ammount, investment.InvestedPrice);
+            Console.WriteLine("New investment of {0}: {1}, Num of {2} {3}, Change of {4}%, Profit {5}", StocksData.MetaData[investment.DataSetCode].Name, investment.InvestmentType,
+                investment.Analyze.IsPositiveInvestment ? "Downs" : "Ups", investment.Analyze.NumOfPredictions, (investment.Analyze.AverageCorrectness * 100).ToString("0.00"), investment.GetProfit(m_Today));
+            Console.WriteLine("Num of investments: {0}, Real Money: {1}, Investments value: {2}, Total value {3},  MoneyToInvest {4}", NumOfInvestments, m_RealMoney, InvestmentsValue, TotalValue, MoneyToInvest);
         }
         private void GoToDate()
         {
-            for (int i = 0; i < 20; i++)
+            DateTime dayRef = m_Today.AddDays(1);
+            int i = 0;
+            while (i < 20 && StocksData.DataSets.Values.Where(x => x.ContainsTradeDay(dayRef)).Count() == 0)
             {
-                Console.WriteLine("{0}. {1}", i, new DateTime((long)StocksData.DataSets.Values.First().GetData(i, DataSet.DataColumns.Date)).ToShortDateString());
+                dayRef = dayRef.AddDays(1);
+                i++;
+            }
+
+            i = 0;
+            Dictionary<int, DateTime> daysMap = new Dictionary<int, DateTime>();
+            while (i < 20)
+            {
+                while (StocksData.DataSets.Values.Where(x => x.ContainsTradeDay(dayRef)).Count() == 0)
+                {
+                    dayRef = dayRef.AddDays(-1);
+                }
+
+                daysMap.Add(i, dayRef);
+                Console.WriteLine("{0}. {1}", i, dayRef.ToShortDateString());
+                i++;
+                dayRef = dayRef.AddDays(-1);
             }
 
             Console.WriteLine("Last trade date: {0}", m_LastTradeDate.ToShortDateString());
 
             Console.WriteLine("Select date: ");
             int dayNum = Convert.ToInt32(Console.ReadLine());
+            m_LastTradeDate = m_Today;
+            m_Today = daysMap[dayNum];
 
-            StocksData.MoveToDate(new DateTime((long)StocksData.DataSets.Values.First().GetData(dayNum, DataSet.DataColumns.Date)));
-
-            if (!StocksData.AreDataSetsSynchronized())
-            {
-                Console.WriteLine("Error: Not all datasets are synchronized");
-            }
-            else
-            {
-                Console.WriteLine("Current date is {0}", StocksData.DataSets.Values.First().GetDate(0).ToShortDateString());
-            }
-
-            m_DailyAnalyzes = null;
+            Console.WriteLine("Current date is {0}", m_Today.ToShortDateString());
         }
 
         #endregion
 
         #region Private Methods
 
-        private DailyAnalyzes GetPredictionsConclusions()
+        private List<string> GetTradableDataSets()
         {
-            DailyAnalyzes conclusions = new DailyAnalyzes();
-            List<PredictionRecord> relevantPredictions = GetRelevantPredictions();
-
-            foreach (PredictionRecord record in relevantPredictions)
+            List<string> tradableDataSets = new List<string>();
+            foreach (string dataSetCode in StocksData.DataSets.Keys)
             {
-                conclusions.Add(record.DataSet.DataSetCode, record.PredictedChange, record);
-            }
-
-            return conclusions;
-        }
-
-        private List<PredictionRecord> GetRelevantPredictions()
-        {
-            List<PredictionRecord> fitAnalyzerRecords = new List<PredictionRecord>();
-            foreach (DataPredictions dataPredictions in StocksData.DataPredictions.Values)
-            {
-                foreach (PredictionRecord predictionRecord in dataPredictions.GetBestPredictions(SGSettings.EffectivePredictionResult))
+                if (StocksData.DataSets[dataSetCode].ContainsTradeDay(m_Today))
                 {
-                    if (IsAnalyzeFits(predictionRecord))
-                    {
-                        fitAnalyzerRecords.Add(predictionRecord);
-                    }
+                    tradableDataSets.Add(dataSetCode);
                 }
             }
 
-            return fitAnalyzerRecords;
-        }
-
-        private bool IsAnalyzeFits(PredictionRecord predictionRecord)
-        {
-            foreach (CombinationItem combinationItem in predictionRecord.Combination)
-            {
-                if (!predictionRecord.DataPredictions.IsContainsPrediction(combinationItem, 0))
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return tradableDataSets;
         }
 
         #endregion

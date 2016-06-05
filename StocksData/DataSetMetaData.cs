@@ -25,8 +25,6 @@ namespace StocksData
 
         public string DataSetFilePath { get { return Workspace + DSSettings.DataSetsDir + FileName; } }
 
-        public string PriceDataSetFilePath { get { return Workspace + DSSettings.PriceDataSetsDir + FileName; } }
-
         public string DataPredictionsFilePath { get { return Workspace + DSSettings.PredictionDir + FileName; } }
 
         public string SimDataPredictionsFilePath { get { return SimPredictionsDir + FileName; } }

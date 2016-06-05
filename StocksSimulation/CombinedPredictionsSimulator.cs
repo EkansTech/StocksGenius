@@ -37,8 +37,6 @@ namespace StocksSimulation
 
         public Dictionary<string, DataSet> DataSets { get; set; }
 
-        public Dictionary<string, DataSet> PriceDataSets { get; set; }
-
         public CombinedDataPredictions CombinedDataPredictions { get; set; }
 
         public double AccountBallance { get; set; }
@@ -93,7 +91,6 @@ namespace StocksSimulation
             string predictionsDir = workingDirectory + DSSettings.PredictionDir;
             EffectivePredictionResult = DSSettings.EffectivePredictionResult;
             DataSets = new Dictionary<string, DataSet>();
-            PriceDataSets = new Dictionary<string, DataSet>();
             CombinedDataPredictions = new CombinedDataPredictions(metaData.SimCombinedDataPredictionsFilePath);
             StocksTotalProfit = new Dictionary<string, double>();
 
@@ -102,8 +99,6 @@ namespace StocksSimulation
                 DataSet dataSet = new DataSet(dataSetCode, metaData[dataSetCode].DataSetFilePath, TestDataAction.LoadOnlyTestData);
                 DataSets.Add(dataSet.DataSetCode, dataSet);
 
-                DataSet priceDataSet = new DataSet(dataSetCode, metaData[dataSetCode].PriceDataSetFilePath, TestDataAction.LoadOnlyTestData);
-                PriceDataSets.Add(priceDataSet.DataSetCode, priceDataSet);
                 StocksTotalProfit.Add(dataSet.DataSetCode, 0.0);
             }
 

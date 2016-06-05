@@ -56,8 +56,6 @@ namespace StocksSimulation
 
         public Dictionary<string, DataSet> DataSets { get; set; }
 
-        public Dictionary<string, DataSet> PriceDataSets { get; set; }
-
         public Dictionary<string, DataPredictions> DataPredictions { get; set; }
 
         public Dictionary<string, double> StocksTotalProfit { get; set; }
@@ -120,7 +118,6 @@ namespace StocksSimulation
             WorkingDirectory = workingDirectory;
             EffectivePredictionResult = DSSettings.EffectivePredictionResult;
             DataSets = new Dictionary<string, DataSet>();
-            PriceDataSets = new Dictionary<string, DataSet>();
             DataPredictions = new Dictionary<string, DataPredictions>();
             StocksTotalProfit = new Dictionary<string, double>();
             Investments = new List<Investment>();
@@ -139,8 +136,6 @@ namespace StocksSimulation
                 DataSet dataSet = new DataSet(dataSetCode, m_MetaData[dataSetCode].DataSetFilePath);
                 DataSets.Add(dataSet.DataSetCode, dataSet);
 
-                DataSet priceDataSet = new DataSet(dataSetCode, m_MetaData[dataSetCode].PriceDataSetFilePath);
-                PriceDataSets.Add(priceDataSet.DataSetCode, priceDataSet);
                 if (!StocksTotalProfit.ContainsKey(dataSetCode))
                 {
                     StocksTotalProfit.Add(dataSet.DataSetCode, 0.0);
@@ -660,7 +655,7 @@ namespace StocksSimulation
             {
                 return;
             }
-            Investment investment = new Investment(DataSets[analyze.DataSetName], PriceDataSets[analyze.DataSetName], analyze, day, TotalValue, RealMoney, StocksTotalProfit[analyze.DataSet.DataSetCode], addPercentagePrice);
+            Investment investment = new Investment(DataSets[analyze.DataSetName], analyze, day, TotalValue, RealMoney, StocksTotalProfit[analyze.DataSet.DataSetCode], addPercentagePrice);
             investment.UpdateAccountOnInvestment(day, TotalValue);
             investment.UpdateRealMoneyOnInvestment(day, ref m_RealMoney);
             Investments.Add(investment);

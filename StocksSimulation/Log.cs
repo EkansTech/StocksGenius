@@ -80,13 +80,6 @@ namespace StocksSimulation
 
         public static void AddMessage(LogLevelType logLevel, String format, params object[] args)
         {
-            if (m_ConnectToConsole)
-            {
-                if ((int)logLevel >= (int)m_LogLevel)
-                {
-                    Console.WriteLine(format, args);
-                }
-            }
             if (!IsActive)
             {
                 return;

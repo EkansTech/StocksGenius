@@ -32,22 +32,22 @@ namespace StocksGenius
 
         #region Interface
 
-        public void SaveToFile(string fileName)
+        public void SaveToFile(DateTime today, string fileName)
         {
             string filePath = string.Format("{0}\\{1}", SGSettings.Workspace, fileName);
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {
                 writer.WriteLine("ID,InvestmentDay,InvestmentType,InvestedPrice,DataSetName,Ammount,PredictedDataItem,PredictedRange,NumOfPredictions,AverageCorrectness,ReleaseDay,ReleasePrice,"
-                     + "Profit,InvestmentValue,TotalProfit,StockTotalProfit,AccountBefore,InvestedMoney,ReleaseID,Status");
+                     + "Profit,InvestmentValue,StockTotalProfit,InvestedMoney,ReleaseID,Status");
                 foreach (Investment investment in this)
                 {
-                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18},{19},{20},{21}",
+                    writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18},{19}",
                         investment.ID,
                         investment.InvestmentDay.ToShortDateString(),
                         investment.InvestmentType,
                         investment.InvestedPrice,
-                        investment.DataSetName,
+                        investment.DataSetCode,
                         investment.Ammount,
                         investment.PredictedChange.DataItem,
                         investment.PredictedChange.Range,
@@ -57,11 +57,9 @@ namespace StocksGenius
                         investment.Analyze.AverageCorrectness,
                         investment.ReleaseDay.ToShortDateString(),
                         investment.ReleasePrice,
-                        investment.Profit,
-                        investment.InvestmentValue,
-                        investment.TotalProfit,
+                        investment.Status == InvestmentStatus.Released ? investment.GetProfit(investment.ReleaseDay) : investment.GetProfit(today),
+                        investment.Status == InvestmentStatus.Released ? investment.GetInvestmentValue(investment.ReleaseDay) : investment.GetInvestmentValue(today),
                         investment.StockTotalProfit,
-                        investment.AccountBefore,
                         investment.InvestedMoney,
                         investment.ReleaseID,
                         investment.Status);
@@ -89,27 +87,25 @@ namespace StocksGenius
                     Analyze analyze = new Analyze()
                     {
                         PredictedChange = predictedChange,
-                        AverageCorrectness = Convert.ToDouble(lineData[1]),
-                        NumOfPredictions = Convert.ToInt32(lineData[12]),
-                        DataSetName = lineData[4]
+                        AverageCorrectness = Convert.ToDouble(lineData[11]),
+                        NumOfPredictions = Convert.ToInt32(lineData[10]),
+                        DataSetCode = lineData[4]
                     };
                     Investment investment = new Investment(Convert.ToInt32(lineData[0]))
                     {
                         InvestmentDay = Convert.ToDateTime(lineData[1]),
                         InvestmentType = (BuySell)Enum.Parse(typeof(BuySell), lineData[2], true),
                         InvestedPrice = Convert.ToDouble(lineData[3]),
-                        DataSetName = lineData[4],
+                        DataSetCode = lineData[4],
                         Ammount = Convert.ToInt32(lineData[5]),
                         PredictedChange = predictedChange,
                         Analyze = analyze,
                         ReleaseDay = Convert.ToDateTime(lineData[12]),
                         ReleasePrice = Convert.ToDouble(lineData[13]),
-                        TotalProfit = Convert.ToDouble(lineData[16]),
-                        StockTotalProfit = Convert.ToDouble(lineData[17]),
-                        AccountBefore = Convert.ToDouble(lineData[18]),
-                        InvestedMoney = Convert.ToDouble(lineData[19]),
-                        ReleaseID = Convert.ToInt32(lineData[20]),
-                        Status = (InvestmentStatus)Enum.Parse(typeof(InvestmentStatus), lineData[21])
+                        StockTotalProfit = Convert.ToDouble(lineData[16]),
+                        InvestedMoney = Convert.ToDouble(lineData[17]),
+                        ReleaseID = Convert.ToInt32(lineData[18]),
+                        Status = (InvestmentStatus)Enum.Parse(typeof(InvestmentStatus), lineData[19])
                     };
 
                     Add(investment);

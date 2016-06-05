@@ -78,7 +78,7 @@ namespace StocksSimulation
 
         public int TotalNumOfInvestments { get; set; }
 
-        public double PredictionErrorRange { get; set; }
+        public double MinChangeForUp { get; set; }
 
         public int MinDayOfDown { get; set; }
 
@@ -88,7 +88,7 @@ namespace StocksSimulation
 
         public int NumOfGoodInvestments { get; set; }
 
-        public int SafeDaysNum { get; set; }
+        public int NumOfDayWithoutProift { get; set; }
 
         public int MaxNumOfInvestments { get; set; }
 
@@ -109,12 +109,12 @@ namespace StocksSimulation
             TotalNumOfInvestments = 0;
             MaxTotalValue = 0;
             MinTotalValue = 0;
-            PredictionErrorRange = 0;
+            MinChangeForUp = 0;
             MinDayOfDown = 0;
             MaxDaysUntilProfit = 0;
             MaxTotalValueLoose = 0.0;
             NumOfGoodInvestments = 0;
-            SafeDaysNum = 0;
+            NumOfDayWithoutProift = 0;
             MaxNumOfInvestments = 0;
         }
 
@@ -133,19 +133,19 @@ namespace StocksSimulation
             MinTotalValue = Convert.ToDouble(fileProperties[8]);
             MaxTotalValue = Convert.ToDouble(fileProperties[9]);
             TotalNumOfInvestments = Convert.ToInt32(fileProperties[10]);
-            PredictionErrorRange = Convert.ToDouble(fileProperties[11]);
+            MinChangeForUp = Convert.ToDouble(fileProperties[11]);
             MinDayOfDown = Convert.ToInt32(fileProperties[12]);
             MaxDaysUntilProfit = Convert.ToInt32(fileProperties[13]);
             MaxTotalValueLoose = Convert.ToDouble(fileProperties[14]);
             NumOfGoodInvestments = Convert.ToInt32(fileProperties[15]);
-            SafeDaysNum = Convert.ToInt32(fileProperties[16]);
+            NumOfDayWithoutProift = Convert.ToInt32(fileProperties[16]);
             MaxNumOfInvestments = Convert.ToInt32(fileProperties[17]);
 
             LoadFromFile(filePath);
         }
 
         public StockRecorder(DateTime startDate, double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, double maxLooseRatio, byte minPredictedRange, 
-            byte maxPredictedRange, int simulationRun, double predictionErrorRange, int minCombinationItemsNum, int maxCombinationItemsNum, int safeDaysNum, int maxNumOfInvestments)
+            byte maxPredictedRange, int simulationRun, double minChangeForUp, int minCombinationItemsNum, int maxCombinationItemsNum, int maxNumOfInvestments)
         {
             StartDate = startDate;
             MinChangeForDown = effectivePredictionResult;
@@ -155,10 +155,9 @@ namespace StocksSimulation
             MinPredictedRange = minPredictedRange;
             MaxPredictedRange = maxPredictedRange;
             SimulationRun = simulationRun;
-            PredictionErrorRange = predictionErrorRange;
+            MinChangeForUp = minChangeForUp;
             MinDayOfDown = minCombinationItemsNum;
             MaxDaysUntilProfit = maxCombinationItemsNum;
-            SafeDaysNum = safeDaysNum;
             MaxNumOfInvestments = maxNumOfInvestments;
         }
 
@@ -171,8 +170,9 @@ namespace StocksSimulation
             Add(new StockRecord(date, realMoney, totalValue, numOfInvestments));
         }
 
-        public void SaveToFile(string workingDirectory, double maxTotalValue, double minTotalValue, int totalNumOfInvestments, double maxTotalValueLoose, int numOfGoodInvestments)
+        public void SaveToFile(string workingDirectory, double maxTotalValue, double minTotalValue, int totalNumOfInvestments, double maxTotalValueLoose, int numOfGoodInvestments, int numOfDayWithoutProift)
         {
+            NumOfDayWithoutProift = numOfDayWithoutProift;
             if (!Directory.Exists(workingDirectory + m_DirectoryName))
             {
                 Directory.CreateDirectory(workingDirectory + m_DirectoryName);
@@ -199,12 +199,12 @@ namespace StocksSimulation
                 minTotalValue, 
                 maxTotalValue, 
                 totalNumOfInvestments,
-                PredictionErrorRange, 
+                MinChangeForUp, 
                 MinDayOfDown, 
                 MaxDaysUntilProfit, 
                 maxTotalValueLoose,
                 numOfGoodInvestments,
-                SafeDaysNum,
+                NumOfDayWithoutProift,
                 MaxNumOfInvestments);
 
             using (StreamWriter writer = new StreamWriter(filePath))
@@ -235,15 +235,15 @@ namespace StocksSimulation
         public static void SaveSummary(string workingDirectory, string fileName)
         {
             List<StockRecorder> recorders = new List<StockRecorder>();
-            foreach (string filePath in Directory.GetFiles(workingDirectory))
+            foreach (string filePath in Directory.GetFiles(SubDirectory))
             {
                 recorders.Add(new StockRecorder(filePath));
             }
 
             using (StreamWriter writer = new StreamWriter(string.Format("{0}\\{1}{2}.csv", workingDirectory, fileName, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
             {
-                writer.WriteLine("SimulationRun,StartDate,MinDayOfDown,MaxDaysUntilProfit,PredictionErrorRange,MinPredictedRange,MaxPredictedRange,MinChangeForDown,MinProfitRatio" +
-                    ",MaxInvestmentsPerStock,MaxLooseRatio,SafeDaysNum,MaxNumOfInvestments,MinTotalValue,MaxTotalValue,MaxTotalValueLoose,TotalNumOfInvestments,GoodInvestments,FinalValue,ProfitPerInvestment");
+                writer.WriteLine("SimulationRun,StartDate,MinDayOfDown,MaxDaysUntilProfit,MinChangeForUp,MinPredictedRange,MaxPredictedRange,MinChangeForDown,MinProfitRatio" +
+                    ",MaxInvestmentsPerStock,MaxLooseRatio,NumOfDayWithoutProift,MaxNumOfInvestments,MinTotalValue,MaxTotalValue,LooseRatio,TotalNumOfInvestments,GoodInvestments,FinalValue,ProfitPerInvestment");
                 foreach (StockRecorder recorder in recorders)
                 {
                     double profitPerInvestment = (recorder.TotalNumOfInvestments == 0) ? 0 : ((double)recorder.Last().TotalValue - SimSettings.RealMoneyStartValue) / (double)recorder.TotalNumOfInvestments;
@@ -252,18 +252,18 @@ namespace StocksSimulation
                         recorder.StartDate.ToShortDateString(),
                         recorder.MinDayOfDown,
                         recorder.MaxDaysUntilProfit,
-                        recorder.PredictionErrorRange * 100,
+                        recorder.MinChangeForUp * 100,
                         recorder.MinPredictedRange,
                         recorder.MaxPredictedRange,
                         recorder.MinChangeForDown,
                         recorder.MinProfitRatio * 100,
                         recorder.MaxInvestmentsPerStock,
                         recorder.MaxLooseRatio * 100,
-                        recorder.SafeDaysNum,
+                        recorder.NumOfDayWithoutProift,
                         recorder.MaxNumOfInvestments,
                         recorder.MinTotalValue,
                         recorder.MaxTotalValue,
-                        recorder.MaxTotalValueLoose,
+                        recorder.MaxTotalValueLoose / recorder.Last().TotalValue,
                         recorder.TotalNumOfInvestments,
                         ((double)recorder.NumOfGoodInvestments / (double)recorder.TotalNumOfInvestments) * 100.0,
                         recorder.Last().TotalValue, 

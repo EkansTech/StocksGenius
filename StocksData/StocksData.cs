@@ -27,14 +27,6 @@ namespace StocksData
             set { m_DataSets = value; }
         }
 
-        private Dictionary<string, DataSet> m_PriceDataSets = new Dictionary<string, DataSet>();
-
-        public Dictionary<string, DataSet> PriceDataSets
-        {
-            get { return m_PriceDataSets; }
-            set { m_PriceDataSets = value; }
-        }
-
         private Dictionary<string, DataPredictions> m_DataPredictions = new Dictionary<string, DataPredictions>();
 
         public Dictionary<string, DataPredictions> DataPredictions
@@ -337,10 +329,6 @@ namespace StocksData
                 {
                     m_DataSets.Add(dataSetCode, new DataSet(dataSetCode, MetaData[dataSetCode].DataSetFilePath));
                 }
-                if (!m_PriceDataSets.ContainsKey(dataSetCode))
-                {
-                    m_PriceDataSets.Add(dataSetCode, new DataSet(dataSetCode, MetaData[dataSetCode].DataSetFilePath));
-                }
             }
         }
 
@@ -361,14 +349,6 @@ namespace StocksData
                 {
                     m_DataSets[dataSetCode] = new DataSet(dataSetCode, MetaData[dataSetCode].DataSetFilePath);
                 }
-                if (!m_PriceDataSets.ContainsKey(dataSetCode))
-                {
-                    m_PriceDataSets.Add(dataSetCode, new DataSet(dataSetCode, MetaData[dataSetCode].PriceDataSetFilePath));
-                }
-                else
-                {
-                    m_PriceDataSets[dataSetCode] = new DataSet(dataSetCode, MetaData[dataSetCode].PriceDataSetFilePath);
-                }
                 m_DataPredictions[dataSetCode].DataSet = m_DataSets[dataSetCode];
             }
         }
@@ -380,12 +360,6 @@ namespace StocksData
                 DataSets[dataSetName].DeleteRows(date);
                 DataSets[dataSetName].CleanTodayData();
             }
-
-            foreach (string dataSetName in DataSets.Keys)
-            {
-                PriceDataSets[dataSetName].DeleteRows(date);
-                PriceDataSets[dataSetName].CleanTodayData();
-            }
         }
 
         public bool AreDataSetsSynchronized()
@@ -394,7 +368,7 @@ namespace StocksData
 
             foreach (string dataSetName in DataSets.Keys)
             {
-               if (!DataSets[dataSetName].GetDate(0).Equals(date) || !PriceDataSets[dataSetName].GetDate(0).Equals(date))
+               if (!DataSets[dataSetName].GetDate(0).Equals(date))
                 {
                     return false;
                 }
@@ -410,7 +384,6 @@ namespace StocksData
             foreach (string dataSetCode in openData.Keys)
             {
                 m_DataSets[dataSetCode].AddTodayOpenData(openData[dataSetCode].Date, openData[dataSetCode].OpenValue);
-                PriceDataSets[dataSetCode].AddTodayOpenData(openData[dataSetCode].Date, openData[dataSetCode].OpenValue);
             }
             //using (StreamReader reader = new StreamReader(openDataFile))
             //{

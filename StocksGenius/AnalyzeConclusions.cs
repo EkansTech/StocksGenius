@@ -26,7 +26,7 @@ namespace StocksGenius
     {
         #region Properties
 
-        public string DataSetName { get; set; }
+        public string DataSetCode { get; set; }
 
         public StocksData.StocksData StocksData { get; set; }
 
@@ -53,14 +53,14 @@ namespace StocksGenius
         public Analyze()
         {
             AverageCorrectness = 0;
-            DataSetName = string.Empty;
+            DataSetCode = string.Empty;
             NumOfPredictions = 0;
         }
 
         public Analyze(PredictionRecord record)
         {
             AverageCorrectness = record.PredictionCorrectness;
-            DataSetName = record.DataSet.DataSetCode;
+            DataSetCode = record.DataSet.DataSetCode;
             NumOfPredictions = 1;
             PredictedChange = record.PredictedChange;
         }

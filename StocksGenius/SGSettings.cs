@@ -21,7 +21,7 @@ namespace StocksGenius
 
         public static double SafesForStockRate = 0.05;
 
-        public static double InvestmentPerStock = 5000;
+        public static double InvestmentPerStock = 2500;
 
         public static string DataSetsCodesPrefix = "WIKI-";
 
@@ -40,6 +40,10 @@ namespace StocksGenius
         public static TestDataAction RelevantDataType = TestDataAction.None;
 
         public static DataSourceTypes DataSourceType = DataSourceTypes.Yahoo;
+
+        public static double MinChangeForDown = 0;
+
+        public static double MinChangeForUp = 0;
 
         public const string RootDiretory = @"C:\Ekans\Stocks\";
 

@@ -78,6 +78,7 @@
   <ItemGroup>
     <Compile Include="CombinationItemAnalyze.cs" />
     <Compile Include="DataSetMetaData.cs" />
+    <Compile Include="DataSources\Plus500DataSource.cs" />
     <Compile Include="DSSettings.cs" />
     <Compile Include="DataSources\iForexDataSource.cs" />
     <Compile Include="PredictedItemsAnalyze.cs" />

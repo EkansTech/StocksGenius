@@ -31,7 +31,6 @@ namespace StocksGenius
                 Console.WriteLine("6. Analyze Predictions");
                 Console.WriteLine("7. Run Investor");
                 Console.WriteLine("8. Build Sim Predictions");
-                Console.WriteLine("9. Run Investor With SimPredictions");
                 Console.WriteLine("10. Build Combined Predictions");
                 Console.WriteLine("11. Simulate Combined Predictions");
                 Console.WriteLine("12. Build Sim Predictions to Temp");
@@ -49,7 +48,6 @@ namespace StocksGenius
                     case "6": stockGenius.AnalyzePredictions(); break;
                     case "7": stockGenius.RunInvestor(); break;
                     case "8": stockGenius.BuildSimPredictions(); break;
-                    case "9": stockGenius.RunInvestor(true); break;
                     case "10": stockGenius.BuildCombinedPredictions(); break;
                     case "11": stockGenius.SimulateCombinedPredictions(); break;
                     case "12": stockGenius.BuildSimPredictions("Temp"); break;

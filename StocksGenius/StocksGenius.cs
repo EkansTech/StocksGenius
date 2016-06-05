@@ -109,7 +109,7 @@ namespace StocksGenius
             //Log.SaveLogToFile(SGSettings.Workspace + "StocksSimulation.log");
 
 
-            SimRecorder.SaveSummary(SGSettings.Workspace, "StockSimSummary");
+            StockRecorder.SaveSummary(SGSettings.Workspace, "StockSimSummary");
 
             return;
         }
@@ -119,13 +119,10 @@ namespace StocksGenius
             PredictionsAnalyze.AnalyzePredictions(SGSettings.Workspace, m_StocksData.MetaData);
         }
 
-        public void RunInvestor(bool useSimPredictions = false)
+        public void RunInvestor()
         {
-            if (m_StocksData.UseSimPredictions != useSimPredictions)
-            {
-                m_StocksData = new StocksData.StocksData(SGSettings.Workspace, SGSettings.DataSourceType, useSimPredictions);
-            }
-            Investor investor = new Investor(m_StocksData, useSimPredictions);
+            m_StocksData = new StocksData.StocksData(SGSettings.Workspace, SGSettings.DataSourceType, false);
+            Investor investor = new Investor(m_StocksData);
             investor.RunInvestor();
         }
 

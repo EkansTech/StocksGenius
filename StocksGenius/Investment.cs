@@ -23,23 +23,15 @@ namespace StocksGenius
 
         public int ReleaseID { get; internal set; }
 
-        public DataSet PriceDataSet
-        {
-            get
-            {
-                return Investor.StocksData.PriceDataSets[DataSetName];
-            }
-        }
-
         public DataSet DataSet
         {
             get
             {
-                return Investor.StocksData.DataSets[DataSetName];
+                return Investor.StocksData.DataSets[DataSetCode];
             }
         }
 
-        public string DataSetName { get; set; }
+        public string DataSetCode { get; set; }
 
         public int Ammount { get; set; }
 
@@ -57,51 +49,15 @@ namespace StocksGenius
 
         public double InvestedMoney { get; set; }
 
-
-        public double AccountBefore { get; set; }
-
         public BuySell InvestmentType { get; set; }
 
         public ActionType Action { get; set; }
 
         public ActionReason ActionReason { get; set; }
 
-        public double TotalProfit { get; set; }
-
         public double StockTotalProfit { get; set; }
 
         public InvestmentStatus Status { get; set; }
-
-        public double Profit
-        {
-            get
-            {
-                if (InvestmentType == BuySell.Buy)
-                {
-                    return GetReleaseMoney(ReleaseDay) - InvestedMoney;
-                }
-                else
-                {
-                    return InvestedMoney - GetReleaseMoney(ReleaseDay);
-                }
-            }
-        }
-
-
-        public double InvestmentValue
-        {
-            get
-            {
-                if (InvestmentType == BuySell.Buy)
-                {
-                    return SGSettings.SafesForStockRate * InvestedMoney + (GetReleaseMoney(ReleaseDay) - InvestedMoney);
-                }
-                else
-                {
-                    return SGSettings.SafesForStockRate * InvestedMoney + (InvestedMoney - GetReleaseMoney(ReleaseDay));
-                }
-            }
-        }
 
         #endregion
 
@@ -112,40 +68,36 @@ namespace StocksGenius
             ID = id;
         }
 
-        public Investment(Analyze analyze, DateTime day, double accountBefore, double totalProfit, double stockTotalProfit, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
+        public Investment(Analyze analyze, DateTime day, double stockTotalProfit, double investingMoney, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
         {
             ID = m_IDs++;
-            DataSetName = analyze.DataSetName;
+            DataSetCode = analyze.DataSetCode;
             PredictedChange = analyze.PredictedChange;
             InvestmentDay = day;
-            InvestedPrice = PriceDataSet.GetDayData(day)[(int)dataColumn];
-            Ammount = (int)(SGSettings.InvestmentPerStock / InvestedPrice);
-            AccountBefore = accountBefore;
+            InvestedPrice = DataSet.GetDayData(day)[(int)dataColumn];
+            Ammount = (int)(investingMoney / InvestedPrice);
             Analyze = analyze;
             InvestmentType = (analyze.IsPositiveInvestment) ? BuySell.Buy : BuySell.Sell; // Test opposite decision
             InvestedMoney = GetInvestmentMoney(InvestedPrice, InvestmentType);
             Action = ActionType.Created;
             ActionReason = ActionReason.NoReason;
-            TotalProfit = totalProfit;
             StockTotalProfit = stockTotalProfit;
             Status = InvestmentStatus.Active;
         }
 
-        public Investment(string dataSetName, DateTime day, double accountBefore, double totalProfit, double stockTotalProfit, BuySell investmentType, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
+        public Investment(string dataSetName, DateTime day, double stockTotalProfit, BuySell investmentType, DataSet.DataColumns dataColumn = DataSet.DataColumns.Open)
         {
             ID = m_IDs++;
-            DataSetName = dataSetName;
+            DataSetCode = dataSetName;
             //PredictedChange = null;
             InvestmentDay = day;
-            InvestedPrice = PriceDataSet.GetDayData(day)[(int)dataColumn];
+            InvestedPrice = DataSet.GetDayData(day)[(int)dataColumn];
             Ammount = (int)(SGSettings.InvestmentPerStock / InvestedPrice);
-            AccountBefore = accountBefore;
             Analyze = null;
             InvestmentType = investmentType;
             InvestedMoney = GetInvestmentMoney(InvestedPrice, InvestmentType);
             Action = ActionType.Created;
             ActionReason = ActionReason.NoReason;
-            TotalProfit = totalProfit;
             StockTotalProfit = stockTotalProfit;
             Status = InvestmentStatus.Active;
         }
@@ -153,18 +105,16 @@ namespace StocksGenius
         private Investment(Investment investment)
         {
             ID = investment.ID;
-            DataSetName = investment.DataSetName;
+            DataSetCode = investment.DataSetCode;
             PredictedChange = investment.PredictedChange;
             InvestmentDay = investment.InvestmentDay;
             InvestedPrice = investment.InvestedPrice;
             Ammount = investment.Ammount;
-            AccountBefore = investment.AccountBefore;
             Analyze = investment.Analyze;
             InvestmentType = investment.InvestmentType;
             InvestedMoney = investment.InvestedMoney;
             Action = investment.Action;
             ActionReason = investment.ActionReason;
-            TotalProfit = investment.TotalProfit;
             StockTotalProfit = investment.StockTotalProfit;
             ReleaseDay = investment.ReleaseDay;
             Status = InvestmentStatus.Active;
@@ -174,20 +124,32 @@ namespace StocksGenius
 
         #region Interface
 
+        public double GetInvestmentValue(DateTime day)
+        {
+            if (InvestmentType == BuySell.Buy)
+            {
+                return SGSettings.SafesForStockRate * InvestedMoney + (GetReleaseMoney(day) - InvestedMoney);
+            }
+            else
+            {
+                return SGSettings.SafesForStockRate * InvestedMoney + (InvestedMoney - GetReleaseMoney(day));
+            }
+        }
+
         internal static void Reset(int id, int releaseId)
         {
             m_IDs = id;
             m_ReleaseIDs = releaseId;
         }
 
-        internal double CurrentProfitPercentage()
+        internal double ProfitPercentage(DateTime day)
         {
-            return Profit / InvestedMoney * 100;
+            return GetProfit(day) / InvestedMoney * 100;
         }
 
-        internal double GetDayPrice(int day)
+        internal double GetDayPrice(DateTime day)
         {
-            return PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open];
+            return DataSet.GetDayData(day)[(int)DataSet.DataColumns.Open];
         }
 
         public Investment Clone()
@@ -209,10 +171,9 @@ namespace StocksGenius
             return BuySell.None;
         }
         
-        public void UpdateInvestment(DailyAnalyzes dailyAnalyzes, DateTime day, double totalProfit, double stockTotalProfit)
+        public void UpdateInvestment(DailyAnalyzes dailyAnalyzes, DateTime day, double stockTotalProfit)
         {
             Action = ActionType.NoAction;
-            TotalProfit = totalProfit;
             StockTotalProfit = stockTotalProfit;
 
             //if (InvestmentDay - day >= AnalyzerSimulator.MaxInvestmentsLive)
@@ -232,9 +193,9 @@ namespace StocksGenius
 
             int daysLeft = PredictedChange.Range - (DataSet.GetDayNum(InvestmentDay) - DataSet.GetDayNum(day));
 
-            if (dailyAnalyzes.ContainsKey(DataSetName))
+            if (dailyAnalyzes.ContainsKey(DataSetCode))
             {
-                var dataSetAnalyzes = dailyAnalyzes[DataSetName].Values.OrderBy(x => x.PredictedChange.Range);
+                var dataSetAnalyzes = dailyAnalyzes[DataSetCode].Values.OrderBy(x => x.PredictedChange.Range);
                 //if ((InvestmentType == BuySell.Buy && dataSetAnalyzes.First().IsNegativeInvestment)
                 //    || (InvestmentType == BuySell.Sell && dataSetAnalyzes.First().IsPositiveInvestment))
                 //{
@@ -270,84 +231,63 @@ namespace StocksGenius
             //}
         }
 
-        public double UpdateAccountOnRelease(double balance)
+        internal object GetLiveLength(DateTime day)
+        {
+            return DataSet.GetDayNum(InvestmentDay) - DataSet.GetDayNum(day);
+        }
+
+        public double UpdateAccountOnRelease(DateTime day, double balance)
         {
             if (InvestmentType == BuySell.Buy)
             {
-                return balance + (GetReleaseMoney() - InvestedMoney);
+                return balance + GetReleaseMoney(day);
             }
             else
             {
-                return balance - (GetReleaseMoney() - InvestedMoney);
+                return balance - GetReleaseMoney(day);
             }
         }
 
-        public double UpdateAccountOnInvestment(double balance)
+        public double UpdateAccountOnInvestment(DateTime day, double balance)
         {
             if (InvestmentType == BuySell.Buy)
             {
-                return balance - GetInvestmentMoney(PriceDataSet.GetDayData()[(int)DataSet.DataColumns.Open], BuySell.Buy);
+                return balance - GetInvestmentMoney(DataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], BuySell.Buy);
             }
             else
             {
-                return balance + GetInvestmentMoney(PriceDataSet.GetDayData()[(int)DataSet.DataColumns.Open], BuySell.Sell);
+                return balance + GetInvestmentMoney(DataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], BuySell.Sell);
             }
         }
 
-        public void UpdateRealMoneyOnInvestment(ref double realMoney)
+        public void UpdateRealMoneyOnInvestment(DateTime day, ref double realMoney)
         {
-            realMoney -= SGSettings.SafesForStockRate * GetInvestmentMoney(PriceDataSet.GetDayData()[(int)DataSet.DataColumns.Open], InvestmentType);
+            realMoney -= SGSettings.SafesForStockRate * InvestedMoney;
         }
 
-        public void UpdateRealMoneyOnRelease(ref double realMoney)
+        public void UpdateRealMoneyOnRelease(DateTime day, ref double realMoney)
         {
-            realMoney += SGSettings.SafesForStockRate *  InvestedMoney + Profit;
+            realMoney += SGSettings.SafesForStockRate * InvestedMoney + GetProfit(day);
         }
 
-        public double GetReleaseMoney()
+        public double GetReleaseMoney(DateTime day)
         {
             BuySell releaseAction = (InvestmentType == BuySell.Buy) ? BuySell.Sell : BuySell.Buy;
-            return GetInvestmentMoney(PriceDataSet.GetDayData(0)[(int)DataSet.DataColumns.Open], releaseAction);
+            return GetInvestmentMoney(DataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
         }
 
-        public double GetReleaseMoney(DateTime date)
+        public double GetProfit(DateTime day)
         {
-            if (date == DateTime.MinValue)
-            {
-                return GetReleaseMoney();
-            }
-            else
-            {
-                return GetReleaseMoney(DataSet.GetDayNum(date));
-            }
+            return (InvestmentType == BuySell.Buy) ? GetReleaseMoney(day) - InvestedMoney : InvestedMoney - GetReleaseMoney(day);
         }
 
-        public double GetReleaseMoney(int day)
+        public double Release(DateTime day, double stockTotalProfit)
         {
-            BuySell releaseAction = (InvestmentType == BuySell.Buy) ? BuySell.Sell : BuySell.Buy;
-            return GetInvestmentMoney(PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
-        }
-
-        public double Release(ref double totalProfit, double stockTotalProfit)
-        {
-            totalProfit += Profit;
-            TotalProfit = totalProfit;
-            StockTotalProfit = stockTotalProfit + Profit;
-            ReleaseDay = DataSet.GetDate(0);
+            StockTotalProfit = stockTotalProfit + GetProfit(day);
+            ReleaseDay = day;
             Status = InvestmentStatus.Released;
-            ReleaseID = m_ReleaseIDs++;
 
             return StockTotalProfit;
-        }
-
-        public static double GetInvestmentPrice(DataSet priceDataSet, bool isPositiveInvestment)
-        {
-            return priceDataSet.GetData(0, DataSet.DataColumns.Open) * (1 + (isPositiveInvestment ? SGSettings.BuySellPenalty : -SGSettings.BuySellPenalty));
-        } 
-
-        internal int GetLiveLength()
-        {
-            return DataSet.GetDayNum(InvestmentDay);
         }
 
         #endregion
@@ -357,8 +297,8 @@ namespace StocksGenius
         private ActionReason IsTimeToRelease(DateTime day)
         {
             BuySell releaseAction = (InvestmentType == BuySell.Buy) ? BuySell.Sell : BuySell.Buy;
-            double releaseMoney = GetInvestmentMoney(PriceDataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
-            double profitRatio = (InvestmentType == BuySell.Buy) ? (GetReleaseMoney() - InvestedMoney) / InvestedMoney : (InvestedMoney - GetReleaseMoney()) / InvestedMoney;
+            double releaseMoney = GetInvestmentMoney(DataSet.GetDayData(day)[(int)DataSet.DataColumns.Open], releaseAction);
+            double profitRatio = (InvestmentType == BuySell.Buy) ? (GetReleaseMoney(day) - InvestedMoney) / InvestedMoney : (InvestedMoney - GetReleaseMoney(day)) / InvestedMoney;
             if (profitRatio > SGSettings.MinProfitRatio)
             {
                 return ActionReason.GoodProfit;
@@ -372,7 +312,7 @@ namespace StocksGenius
             return ActionReason.NoReason;
         }
 
-        private double GetInvestmentMoney(double price, BuySell buyOrSell)
+        public double GetInvestmentMoney(double price, BuySell buyOrSell)
         {
             if (buyOrSell == BuySell.Buy)
             {

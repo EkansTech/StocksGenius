@@ -377,31 +377,18 @@ namespace StocksData
             return true;
         }
 
-        public void AddOpenDataToDataSets(string openDataFile, string dataSetCodesPrefix)
+        public void AddOpenDataToDataSets(string dataSetCodesPrefix)
         {
-            Dictionary<string, iForexDataSource.OpenData> openData = iForexDataSource.LoadTodayOpenData(openDataFile, MetaData);
-
+            Dictionary<string, double> openData = DataSource.GetTodayOpenData(MetaData);
+            if (openData == null)
+            {
+                return;
+            }
+            DateTime today = DateTime.Today.Date;
             foreach (string dataSetCode in openData.Keys)
             {
-                m_DataSets[dataSetCode].AddTodayOpenData(openData[dataSetCode].Date, openData[dataSetCode].OpenValue);
+                m_DataSets[dataSetCode].AddTodayOpenData(today, openData[dataSetCode]);
             }
-            //using (StreamReader reader = new StreamReader(openDataFile))
-            //{
-            //    while (!reader.EndOfStream)
-            //    {
-            //        string[] lineData = reader.ReadLine().Split(',');
-            //        string dataSetName = dataSetCodesPrefix + lineData[0].Trim('"');
-            //        if (lineData[1].Equals("N/A"))
-            //        {
-            //            Console.WriteLine("The open data for {0} is not available", dataSetName);
-            //            return;
-            //        }
-            //        double openPrice = Convert.ToDouble(lineData[1]);
-            //        string[] dateValues = lineData[2].Trim('"').Split('/');
-            //        DateTime date = new DateTime(Convert.ToInt32(dateValues[2]), Convert.ToInt32(dateValues[0]), Convert.ToInt32(dateValues[1]));
-            //        m_DataSets[dataSetName].AddTodayOpenData(date, openPrice);
-            //    }
-            //}
         }
 
         #endregion
@@ -414,8 +401,10 @@ namespace StocksData
             {
                 case DataSourceTypes.Quandl: return new QuandlDataSource();
                 case DataSourceTypes.Yahoo: return new YahooDataSource();
+                case DataSourceTypes.Google: return new GoogleDataSource();
                 case DataSourceTypes.Xignite: return new XigniteDataSource();
                 case DataSourceTypes.Bloomberg: return new BloombergDataSource();
+                case DataSourceTypes.Plus500: return new Plus500DataSource();
                 default:
                     return new YahooDataSource();
             }

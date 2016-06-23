@@ -197,21 +197,31 @@ namespace StocksSimulation
                 return;
             }
 
-            if (InvestmentDay - ReleaseDay >= StockSimulation.MaxDaysUntilProfit)
+            int dayNum = DataSet.GetDayNum(day);
+            double change = DataSet.GetData(dayNum, DataSet.DataColumns.Open) - DataSet.GetData(dayNum + 1, DataSet.DataColumns.Open);
+            if (change != 0) //(InvestmentType == BuySell.Buy && change > 0) || (InvestmentType == BuySell.Sell && change < 0))
             {
                 IsEndOfInvestment = true;
                 Action = ActionType.Released;
-                ActionReason = ActionReason.BadLoose;
+                ActionReason = ActionReason.EndOfPeriod;
                 return;
             }
 
-            //if (profitRatio <= StockSimulation.MaxLooseRatio)
+            //if (InvestmentDay - ReleaseDay >= StockSimulation.MaxDaysUntilProfit)
             //{
             //    IsEndOfInvestment = true;
             //    Action = ActionType.Released;
             //    ActionReason = ActionReason.BadLoose;
             //    return;
             //}
+
+                //if (profitRatio <= StockSimulation.MaxLooseRatio)
+                //{
+                //    IsEndOfInvestment = true;
+                //    Action = ActionType.Released;
+                //    ActionReason = ActionReason.BadLoose;
+                //    return;
+                //}
         }
 
         public void UpdateInvestment(DailyAnalyzes dailyAnalyzes, DateTime day, double totalValue, double realMoney, double stockTotalProfit)

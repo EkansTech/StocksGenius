@@ -60,6 +60,11 @@ namespace StocksData
             return todayOpenData;
         }
 
+        public override Dictionary<string, double> GetTodayOpenData(DataSetsMetaData metaData)
+        {
+            return null;
+        }
+
         #endregion
 
         #region Interfaces

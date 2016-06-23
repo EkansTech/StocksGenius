@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -38,81 +39,206 @@ namespace StocksData
                 return;
             }
 
-            int datasetNumber = 0;
-            foreach (string datasetCode in metaData.Keys)
+            foreach (string dataSourceFile in Directory.GetFiles(DSSettings.RootDiretory + DSSettings.DataSetsSourcesDir))
             {
-                using (WebClient web = new WebClient())
+                using (StreamReader reader = new StreamReader(dataSourceFile))
                 {
-                    bool addOldData = false;
-                    string oldFileContent = string.Empty;
-
-                    Console.Write(new string(' ', Console.WindowWidth));
-                    Console.SetCursorPosition(0, Console.CursorTop - 1);
-                    DateTime startDate;
-                    if (File.Exists(metaData[datasetCode].DataSetFilePath))
+                    while (!reader.EndOfStream)
                     {
-                        Console.WriteLine("Updating dataset: {0}", Path.GetFileName(metaData[datasetCode].DataSetFilePath));
-                        using (StreamReader reader = new StreamReader(metaData[datasetCode].DataSetFilePath))
-                        {
-                            reader.ReadLine();
-                            oldFileContent = reader.ReadLine() + Environment.NewLine;
-                            DateTime lastDate = Convert.ToDateTime(oldFileContent.Split(',')[0]);
-                            oldFileContent += reader.ReadToEnd();
-                            startDate = lastDate.AddDays(1);
-                            addOldData = true;
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("Creating new dataset: {0}", Path.GetFileName(metaData[datasetCode].DataSetFilePath));
-                        startDate = new DateTime(1950, 1, 1);
+                        Dictionary<string, string> dataSetData = ConvertJSONToDictionary(reader.ReadLine());
 
+                        UpdateDataSet(dataSetData, metaData);
                     }
-
-                    Console.WriteLine("Completed {0}%", (((double)datasetNumber) / (double)metaData.Count * 100.0).ToString("0.00"));
-                    datasetNumber++;
-                    
-                    string newData = string.Empty;
-                    try
-                    {
-                        newData = web.DownloadString(string.Format("http://ichart.finance.yahoo.com/table.csv?s={0}&a={1}&b={2}&c={3}", datasetCode, startDate.Month - 1, startDate.Day, startDate.Year));
-                    }
-                    catch
-                    {
-                        Console.WriteLine("No new data available for {0}", datasetCode);
-                        continue;
-                    }
-
-                    using (StreamWriter writer = new StreamWriter(metaData[datasetCode].DataSetFilePath))
-                    {
-                        writer.Write(newData);
-                        if (addOldData)
-                        {
-                            writer.Write(oldFileContent);
-                        }
-                    }
-
-                    Thread.Sleep(1000);
                 }
             }
+
+            //metaData.SaveToFile(workingDirectory + DSSettings.DataSetsMetaDataFile, workingDirectory);
         }
 
         #region Private Methods
 
-        private Dictionary<string, string> GetCodesFromFile(string datasetsCodesFilePath)
+        private void UpdateDataSet(Dictionary<string, string> dataSetData, DataSetsMetaData metaData)
         {
-            Dictionary<string, string> datasetsNames = new Dictionary<string, string>();
-            StreamReader readStream = new StreamReader(datasetsCodesFilePath);
+            DataSetMetaData dataSetMetaData;
 
-            while (!readStream.EndOfStream)
+            //dataSetMetaData = metaData.Values.First(x => x.Name == dataSetData["InstrumentName"]);
+            dataSetMetaData = metaData.Values.FirstOrDefault(x => x.ID == dataSetData["InstrumentID"]);
+            if (dataSetMetaData == null)
             {
-                string[] lineData = readStream.ReadLine().Split(',');
+                return;
+            }
+            dataSetMetaData.ID = dataSetData["InstrumentID"];
 
-                datasetsNames.Add(lineData[1], lineData[0]);
+            if (dataSetMetaData.ID == "84")
+            {
+                dataSetMetaData.ID = "84";
             }
 
-            return datasetsNames;
+            DataSet dataSet;
+
+            if (File.Exists(dataSetMetaData.DataSetFilePath))
+            {
+                dataSet = new DataSet(dataSetMetaData.Code, dataSetMetaData.DataSetFilePath);
+            }
+            else
+            {
+                dataSet = new DataSet(dataSetMetaData.Code);
+            }
+
+            List<DateTime> dateTime = ReadDateTimesInBase64(dataSetData["DateTime"]);
+            List<double> closeRate = ReadDecimalsInBase64(dataSetData["CloseRate"]);
+            List<double> highRate = ReadDecimalsInBase64(dataSetData["HighRate"]);
+            List<double> lowRate = ReadDecimalsInBase64(dataSetData["LowRate"]);
+            List<double> openRate = ReadDecimalsInBase64(dataSetData["OpenRate"]);
+
+            if (dateTime.Count != closeRate.Count || highRate.Count != lowRate.Count || dateTime.Count != openRate.Count || dateTime.Count != highRate.Count || dateTime.Count < 2)
+            {
+                Console.WriteLine("Error parsing plus 500 {0} corrupted data", dataSetData["InstrumentName"]);
+            }
+
+            if (dataSet.DataSetCode == "AIR.PA")
+            {
+                dataSet.DataSetCode = dataSet.DataSetCode;
+            }
+
+            for (int i = dateTime.Count - 1; i >= 0; i--)
+            {
+                if (dataSet.ContainsTradeDay(dateTime[i].Date))
+                {
+                    continue;
+                }
+
+                List<double> newDateData = new List<double>();
+
+                for (int columnNum = 0; columnNum < (int)DataSet.DataColumns.NumOfColumns; columnNum++)
+                {
+                    DataSet.DataColumns column = (DataSet.DataColumns)columnNum;
+                    switch (column)
+                    {
+                        case DataSet.DataColumns.Date:
+                            newDateData.Add(dateTime[i].Date.Ticks);
+                            break;
+                        case DataSet.DataColumns.Open:
+                            newDateData.Add(openRate[i]);
+                            break;
+                        case DataSet.DataColumns.High:
+                            newDateData.Add(highRate[i]);
+                            break;
+                        case DataSet.DataColumns.Low:
+                            newDateData.Add(lowRate[i]);
+                            break;
+                        case DataSet.DataColumns.Close:
+                            newDateData.Add(closeRate[i]);
+                            break;
+                        default:
+                            newDateData.Add(0.0);
+                            break;
+                    }
+                }
+
+                dataSet.AddRange(newDateData);
+            }
+
+            dataSet.SaveDataToFile(dataSetMetaData.DataSetFilePath);
         }
+
+        private string Base64Decode(string b)
+        {
+            string base64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+
+            Regex rgx = new Regex("[^a-zA-Z0-9+/=]");
+            b = rgx.Replace(b, "");
+            int d, e, h, f, g;
+            string c = "";
+            for (int j = 0; j < b.Length;)
+            {
+                d = base64.IndexOf(b[j]);
+                j++;
+                e = base64.IndexOf(b[j]);
+                j++;
+                h = base64.IndexOf(b[j]);
+                j++;
+                f = base64.IndexOf(b[j]);
+                j++;
+                d = d << 2 | e >> 4;
+                e = (e & 15) << 4 | h >> 2;
+                g = (h & 3) << 6 | f;
+                c += char.ConvertFromUtf32(d); if (h != 64) c += char.ConvertFromUtf32(e); if (f != 64) c += char.ConvertFromUtf32(g);
+            }
+
+            return c;
+        }
+
+        private List<double> ReadDecimalsInBase64(string b)
+        {
+            List<double> results = new List<double>();
+            b = Base64Decode(b);
+            int d, g;
+            string c = string.Empty;
+            double g1, e;
+            for (d = 0; d < b.Length; d += 4)
+            {
+                for (e = 0, g = 3; g >= 0; g--)
+                {
+                    e = e * 256 + b[d + g];
+                }
+                g1 = Math.Floor(e / 1E8);
+                e = e % 1E8 * Math.Pow(10, -g1);
+                results.Add(e);
+            }
+
+            return results;
+        }
+
+        private List<DateTime> ReadDateTimesInBase64(string b)
+        {
+            List<DateTime> results = new List<DateTime>();
+            b = Base64Decode(b);
+            for (int d = 0; d < b.Length; d += 6)
+            {
+                double e = 0;
+                for (int g = 3; g >= 0; g--)
+                {
+                    e = e * 256 + b[d + g];
+                }
+                    e *= 1E3;
+                e += 256 * b[d + 5] + b[d + 4];
+                DateTime date = new DateTime(1970, 1, 1).AddMilliseconds(e).ToLocalTime();
+                results.Add(date);
+            }
+
+            return results;
+        }
+
+        private Dictionary<string, string> ConvertJSONToDictionary(string message)
+        {
+            Dictionary<string, string> messageData = new Dictionary<string, string>();
+            message = message.Trim('{', '}');
+            foreach (string messageElement in message.Split(','))
+            {
+                if (string.IsNullOrWhiteSpace(messageElement))
+                {
+                    continue;
+                }
+
+                if (!messageElement.Contains(':'))
+                {
+                    Console.WriteLine("Error in parsing data source for plus 500, no ':'");
+                    continue;
+                }
+
+                string[] elementData = messageElement.Split(':');
+                messageData.Add(elementData[0].Trim('\"'), elementData[1].Trim('\"'));
+            }
+
+            return messageData;
+        }
+
+        public override Dictionary<string, double> GetTodayOpenData(DataSetsMetaData metaData)
+        {
+            return null;
+        }
+
         #endregion
     }
 }

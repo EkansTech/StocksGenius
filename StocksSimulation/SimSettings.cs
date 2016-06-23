@@ -11,7 +11,7 @@ namespace StocksSimulation
     {
         public static double BuySellPenalty = 0.002;
 
-        public const double InvestmentPerStock = 5000;
+        public const double InvestmentPerStock = 1000;
 
         public const string SimulationRecordsDirectory = "\\SimulationRecords\\";
 

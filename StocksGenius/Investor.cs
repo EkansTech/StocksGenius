@@ -98,7 +98,7 @@ namespace StocksGenius
 
             LoadInvestorState();
             GetTodayOpenData();
-            StocksData.AddOpenDataToDataSets(SGSettings.Workspace + SGSettings.NewOpenDataFile, SGSettings.DataSetsCodesPrefix);
+            StocksData.AddOpenDataToDataSets(SGSettings.DataSetsCodesPrefix);
         }
 
         #endregion
@@ -176,7 +176,7 @@ namespace StocksGenius
 
             //using (var client = new WebClient())
             //{
-            //    client.DownloadFile(string.Format("http://finance.yahoo.com/d/quotes.csv?s={0}&f=sod1", dataSetCodes), SGSettings.Workspace + SGSettings.NewOpenDataFile);
+            //    client.DownloadFile(string.Format("http://finance.yahoo.com/d/quotes.csv?s={0}&f=sod1", dataSetCodes), DSSettings.Workspace + SGSettings.NewOpenDataFile);
             //}
         }
 
@@ -192,7 +192,7 @@ namespace StocksGenius
 
         private void LoadInvestorState()
         {
-            IniFile investorSettings = new IniFile(SGSettings.Workspace + SGSettings.InvestorIni);
+            IniFile investorSettings = new IniFile(DSSettings.Workspace + SGSettings.InvestorIni);
 
             m_LastTradeDate = investorSettings.IniReadDateTime("General", "LastTradeDate");
             m_RealMoney = investorSettings.IniReadDoubleValue("General", "RealMoney");
@@ -205,7 +205,9 @@ namespace StocksGenius
 
             foreach (string dataSetName in StocksData.DataSets.Keys)
             {
-                m_StocksTotalProfit[dataSetName] = investorSettings.IniReadDoubleValue("StocksProfit", dataSetName);
+                double value = m_StocksTotalProfit[dataSetName];
+                investorSettings.IniReadDoubleValue("StocksProfit", dataSetName, ref value);
+                m_StocksTotalProfit[dataSetName] = value;
             }
 
             m_Today = m_LastTradeDate;
@@ -214,7 +216,7 @@ namespace StocksGenius
         private void SaveInvestorState()
         {
             m_LastTradeDate = m_Today;
-            IniFile investorSettings = new IniFile(SGSettings.Workspace + SGSettings.InvestorIni);
+            IniFile investorSettings = new IniFile(DSSettings.Workspace + SGSettings.InvestorIni);
 
             investorSettings.IniWriteValue("General", "TotalValue", TotalValue);
             investorSettings.IniWriteValue("General", "LastTradeDate", m_LastTradeDate);
@@ -244,12 +246,14 @@ namespace StocksGenius
 
         private void ReleaseInvestments()
         {
+            List<string> dataSets = GetTradableDataSets();
             foreach (Investment activeInvestment in ActiveInvestments)
             {
                 double profitRatio = activeInvestment.GetProfit(m_Today) / activeInvestment.InvestedMoney;
-                Console.WriteLine("ID: {0}, DS: {1}, Type: {2}, Ammount: {3}, Current Profit: {4}, Num Of {5}: {6}, Live length: {7}, Profit {8}%", activeInvestment.ID, StocksData.MetaData[activeInvestment.DataSetCode].Name,
+                bool isTradable = dataSets.FirstOrDefault(x => x == activeInvestment.DataSetCode) != null;
+                Console.WriteLine("{9}ID: {0}, DS: {1}, Type: {2}, Ammount: {3}, Current Profit: {4}, Num Of {5}: {6}, Live length: {7}, Profit {8}%", activeInvestment.ID, StocksData.MetaData[activeInvestment.DataSetCode].Name,
                 activeInvestment.InvestmentType, activeInvestment.Ammount, activeInvestment.GetProfit(m_Today), activeInvestment.InvestmentType == BuySell.Buy ? "Downs" : "Ups", 
-                activeInvestment.Analyze.NumOfPredictions, activeInvestment.GetLiveLength(m_Today), (profitRatio * 100.0).ToString("0.00"));
+                activeInvestment.Analyze.NumOfPredictions, activeInvestment.GetLiveLength(m_Today), (profitRatio * 100.0).ToString("0.00"), isTradable ? string.Empty : "NotTradable ");
             }
 
             Console.WriteLine("Num of investments: {0}, Real Money: {1}, Investments value: {2}, Total value {3},  MoneyToInvest {4}", NumOfInvestments, m_RealMoney, InvestmentsValue, TotalValue, MoneyToInvest);
@@ -290,7 +294,7 @@ namespace StocksGenius
                     }
                     else
                     {
-                        if (numOfDowns > 0 && (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open) < SGSettings.MinChangeForDown)
+                        if (numOfDowns >= SGSettings.MinNumOfDowns || (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open) < SGSettings.MinChangeForDown)
                         {
                             Analyze analyze = new Analyze()
                             {
@@ -317,7 +321,7 @@ namespace StocksGenius
                     }
                     else
                     {
-                        if (numOfUps > 0 && (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open) > SGSettings.MinChangeForUp)
+                        if (numOfUps >= SGSettings.MinNumOfUps || (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open) > SGSettings.MinChangeForUp)
                         {
                             Analyze analyze = new Analyze()
                             {
@@ -337,7 +341,7 @@ namespace StocksGenius
                 }        
             }
 
-            potentialInvestments = potentialInvestments.OrderByDescending(x => x.AverageCorrectness > 0 ? x.AverageCorrectness : -x.AverageCorrectness).ToList();
+            potentialInvestments = potentialInvestments.OrderByDescending(x => (x.AverageCorrectness > 0 ? x.AverageCorrectness : -x.AverageCorrectness + 10) * 100 + x.NumOfPredictions).ToList();
             Dictionary<int, Analyze> actionsMap = potentialInvestments.ToDictionary(x => potentialInvestments.IndexOf(x) + 1);
             foreach (int analyzeNum in actionsMap.Keys)
             {
@@ -421,7 +425,7 @@ namespace StocksGenius
             List<string> tradableDataSets = new List<string>();
             foreach (string dataSetCode in StocksData.DataSets.Keys)
             {
-                if (StocksData.DataSets[dataSetCode].ContainsTradeDay(m_Today))
+                if (StocksData.DataSets[dataSetCode].IsTradableDay(m_Today))
                 {
                     tradableDataSets.Add(dataSetCode);
                 }

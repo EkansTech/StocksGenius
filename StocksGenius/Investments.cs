@@ -34,7 +34,7 @@ namespace StocksGenius
 
         public void SaveToFile(DateTime today, string fileName)
         {
-            string filePath = string.Format("{0}\\{1}", SGSettings.Workspace, fileName);
+            string filePath = string.Format("{0}\\{1}", DSSettings.Workspace, fileName);
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {
@@ -69,7 +69,7 @@ namespace StocksGenius
 
         public void LoadFromFile(string fileName)
         {
-            string filePath = string.Format("{0}\\{1}", SGSettings.Workspace, fileName);
+            string filePath = string.Format("{0}\\{1}", DSSettings.Workspace, fileName);
 
             if (!File.Exists(filePath))
             {

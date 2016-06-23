@@ -66,7 +66,7 @@ namespace StocksSimulation
 
         public double MaxLooseRatio { get; set; }
 
-        public byte MinPredictedRange { get; set; }
+        public byte MinDaysOfUp { get; set; }
 
         public byte MaxPredictedRange { get; set; }
 
@@ -80,7 +80,7 @@ namespace StocksSimulation
 
         public double MinChangeForUp { get; set; }
 
-        public int MinDayOfDown { get; set; }
+        public int MinDaysOfDown { get; set; }
 
         public int MaxDaysUntilProfit { get; set; }
 
@@ -103,14 +103,14 @@ namespace StocksSimulation
             MinProfitRatio = 0;
             MaxInvestmentsPerStock = 0;
             MaxLooseRatio = 0;
-            MinPredictedRange = 0;
+            MinDaysOfUp = 0;
             MaxPredictedRange = 0;
             SimulationRun = simulationRun;
             TotalNumOfInvestments = 0;
             MaxTotalValue = 0;
             MinTotalValue = 0;
             MinChangeForUp = 0;
-            MinDayOfDown = 0;
+            MinDaysOfDown = 0;
             MaxDaysUntilProfit = 0;
             MaxTotalValueLoose = 0.0;
             NumOfGoodInvestments = 0;
@@ -124,7 +124,7 @@ namespace StocksSimulation
             string[] fileProperties = fileName.Split('_');
             StartDate = new DateTime(Convert.ToInt32(fileProperties[0].Split('.')[0]), Convert.ToInt32(fileProperties[0].Split('.')[1]), Convert.ToInt32(fileProperties[0].Split('.')[2]));
             SimulationRun = Convert.ToInt32(fileProperties[1]);
-            MinPredictedRange = Convert.ToByte(fileProperties[2]);
+            MinDaysOfUp = Convert.ToByte(fileProperties[2]);
             MaxPredictedRange = Convert.ToByte(fileProperties[3]);
             MinChangeForDown = Convert.ToDouble(fileProperties[4]);
             MinProfitRatio = Convert.ToDouble(fileProperties[5]);
@@ -134,7 +134,7 @@ namespace StocksSimulation
             MaxTotalValue = Convert.ToDouble(fileProperties[9]);
             TotalNumOfInvestments = Convert.ToInt32(fileProperties[10]);
             MinChangeForUp = Convert.ToDouble(fileProperties[11]);
-            MinDayOfDown = Convert.ToInt32(fileProperties[12]);
+            MinDaysOfDown = Convert.ToInt32(fileProperties[12]);
             MaxDaysUntilProfit = Convert.ToInt32(fileProperties[13]);
             MaxTotalValueLoose = Convert.ToDouble(fileProperties[14]);
             NumOfGoodInvestments = Convert.ToInt32(fileProperties[15]);
@@ -144,19 +144,19 @@ namespace StocksSimulation
             LoadFromFile(filePath);
         }
 
-        public StockRecorder(DateTime startDate, double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, double maxLooseRatio, byte minPredictedRange, 
-            byte maxPredictedRange, int simulationRun, double minChangeForUp, int minCombinationItemsNum, int maxCombinationItemsNum, int maxNumOfInvestments)
+        public StockRecorder(DateTime startDate, double effectivePredictionResult, double minProfitRatio, int maxInvestmentsPerStock, double maxLooseRatio, byte minDayOfUp, 
+            byte maxPredictedRange, int simulationRun, double minChangeForUp, int minDayOfDown, int maxCombinationItemsNum, int maxNumOfInvestments)
         {
             StartDate = startDate;
             MinChangeForDown = effectivePredictionResult;
             MinProfitRatio = minProfitRatio;
             MaxInvestmentsPerStock = maxInvestmentsPerStock;
             MaxLooseRatio = maxLooseRatio;
-            MinPredictedRange = minPredictedRange;
+            MinDaysOfUp = minDayOfUp;
             MaxPredictedRange = maxPredictedRange;
             SimulationRun = simulationRun;
             MinChangeForUp = minChangeForUp;
-            MinDayOfDown = minCombinationItemsNum;
+            MinDaysOfDown = minDayOfDown;
             MaxDaysUntilProfit = maxCombinationItemsNum;
             MaxNumOfInvestments = maxNumOfInvestments;
         }
@@ -190,7 +190,7 @@ namespace StocksSimulation
                 SubDirectory,
                 StartDate.Year + "." + StartDate.Month + "." + StartDate.Day,
                 SimulationRun.ToString("0000"),
-                MinPredictedRange, 
+                MinDaysOfUp, 
                 MaxPredictedRange, 
                 MinChangeForDown, 
                 MinProfitRatio, 
@@ -200,7 +200,7 @@ namespace StocksSimulation
                 maxTotalValue, 
                 totalNumOfInvestments,
                 MinChangeForUp, 
-                MinDayOfDown, 
+                MinDaysOfDown, 
                 MaxDaysUntilProfit, 
                 maxTotalValueLoose,
                 numOfGoodInvestments,
@@ -242,20 +242,20 @@ namespace StocksSimulation
 
             using (StreamWriter writer = new StreamWriter(string.Format("{0}\\{1}{2}.csv", workingDirectory, fileName, DateTime.Now.ToString().Replace(':', '_').Replace('/', '_'))))
             {
-                writer.WriteLine("SimulationRun,StartDate,MinDayOfDown,MaxDaysUntilProfit,MinChangeForUp,MinPredictedRange,MaxPredictedRange,MinChangeForDown,MinProfitRatio" +
+                writer.WriteLine("SimulationRun,StartDate,MinDayOfDown,MinChangeForDown,MinDaysOfUp,MinChangeForUp,MaxDaysUntilProfit,MaxPredictedRange,MinProfitRatio" +
                     ",MaxInvestmentsPerStock,MaxLooseRatio,NumOfDayWithoutProift,MaxNumOfInvestments,MinTotalValue,MaxTotalValue,LooseRatio,TotalNumOfInvestments,GoodInvestments,FinalValue,ProfitPerInvestment");
                 foreach (StockRecorder recorder in recorders)
                 {
                     double profitPerInvestment = (recorder.TotalNumOfInvestments == 0) ? 0 : ((double)recorder.Last().TotalValue - SimSettings.RealMoneyStartValue) / (double)recorder.TotalNumOfInvestments;
-                    writer.WriteLine("{0},{1},{2},{3},{4}%,{5},{6},{7},{8}%,{9},{10}%,{11},{12},{13},{14},{15},{16},{17}%,{18},{19}",
+                    writer.WriteLine("{0},{1},{2},{3}%,{4},{5}%,{6},{7},{8}%,{9},{10}%,{11},{12},{13},{14},{15},{16},{17}%,{18},{19}",
                         recorder.SimulationRun,
                         recorder.StartDate.ToShortDateString(),
-                        recorder.MinDayOfDown,
-                        recorder.MaxDaysUntilProfit,
+                        recorder.MinDaysOfDown,
+                        recorder.MinChangeForDown * 100,
+                        recorder.MinDaysOfUp,
                         recorder.MinChangeForUp * 100,
-                        recorder.MinPredictedRange,
+                        recorder.MaxDaysUntilProfit,
                         recorder.MaxPredictedRange,
-                        recorder.MinChangeForDown,
                         recorder.MinProfitRatio * 100,
                         recorder.MaxInvestmentsPerStock,
                         recorder.MaxLooseRatio * 100,

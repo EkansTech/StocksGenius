@@ -60,7 +60,7 @@ namespace StocksGenius
 
         private static void LoadWorkspaceSettings()
         {
-            IniFile settings = new IniFile(SGSettings.Workspace + SGSettings.WorkspaceSettingsIni);
+            IniFile settings = new IniFile(DSSettings.Workspace + SGSettings.WorkspaceSettingsIni);
             SGSettings.DataSourceType = ParseDataSourceType(settings.IniReadValue("DataSource", "DataSourceType"));
             SGSettings.DataSetsCodesPrefix = settings.IniReadValue("DataSource", "DataSetsCodesPrefix");
 
@@ -128,15 +128,17 @@ namespace StocksGenius
             {
                 case "quandl": return DataSourceTypes.Quandl;
                 case "yahoo": return DataSourceTypes.Yahoo;
+                case "google": return DataSourceTypes.Google;
                 case "xignite": return DataSourceTypes.Xignite;
                 case "bloomberg": return DataSourceTypes.Bloomberg;
+                case "plus500": return DataSourceTypes.Plus500;
                 default: return DataSourceTypes.Yahoo;
             }
         }
 
         private static void SelectWorkSpace()
         {
-            IniFile stocksSettings = new IniFile(SGSettings.RootDiretory + SGSettings.StockSettingsIni);
+            IniFile stocksSettings = new IniFile(DSSettings.RootDiretory + DSSettings.StockSettingsIni);
             List<string> workspaces = new List<string>();
 
             int i = 1;
@@ -162,8 +164,8 @@ namespace StocksGenius
 
             int workspaceNum = Convert.ToInt32(Console.ReadLine());
 
-            SGSettings.Workspace = SGSettings.RootDiretory + workspaces[workspaceNum] + "\\";
-            Console.WriteLine("Selected {0} workspace: {1}", workspaces[workspaceNum], SGSettings.Workspace);
+            DSSettings.Workspace = DSSettings.RootDiretory + workspaces[workspaceNum] + "\\";
+            Console.WriteLine("Selected {0} workspace: {1}", workspaces[workspaceNum], DSSettings.Workspace);
         }
     }
 }

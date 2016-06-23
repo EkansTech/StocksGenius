@@ -65,7 +65,7 @@ namespace StocksData
                     else
                     {
                         Console.WriteLine("Creating new dataset: {0}", Path.GetFileName(metaData[datasetCode].DataSetFilePath));
-                        startDate = new DateTime(1950, 1, 1);
+                        startDate = DateTime.Today.AddMonths(-3);
 
                     }
 
@@ -96,6 +96,61 @@ namespace StocksData
                 }
             }
         }
+
+
+        public override Dictionary<string, double> GetTodayOpenData(DataSetsMetaData metaData)
+        {
+            Dictionary<string, double> openDataList = new Dictionary<string, double>();
+            string quotes = string.Empty;
+            bool first = true;
+            foreach (string datasetCode in metaData.Keys)
+            {
+                if (first)
+                {
+                    quotes = datasetCode;
+                    first = false;
+                }
+                else
+                {
+                    quotes += "+" + datasetCode;
+                }
+            }
+            string openData = string.Empty;
+            using (WebClient web = new WebClient())
+            {
+                try
+                {
+                    openData = web.DownloadString(string.Format("http://finance.yahoo.com/d/quotes.csv?s={0}&f=sd1o", quotes));
+                }
+                catch
+                {
+                    Console.WriteLine("No open data available");
+                    return null;
+                }
+            }
+
+            foreach (string[] stockOpenData in openData.Split('\n').Select(x => x.Trim('\"').Split(',')))
+            {
+                if (stockOpenData.Length < 3 || stockOpenData[1] == "N/A")
+                {
+                    continue;
+                }
+                for (int i = 0; i < stockOpenData.Length; i++)
+                {
+                    stockOpenData[i] = stockOpenData[i].Trim('\"');
+                }
+                int year = Convert.ToInt32(stockOpenData[1].Split('/')[2]);
+                int month = Convert.ToInt32(stockOpenData[1].Split('/')[0]);
+                int day = Convert.ToInt32(stockOpenData[1].Split('/')[1]);
+                if (new DateTime(year, month, day).Date == DateTime.Today.Date)
+                {
+                    openDataList.Add(stockOpenData[0], Convert.ToDouble(stockOpenData[2]));
+                }
+            }
+
+            return openDataList;
+        }
+
 
         #region Private Methods
 

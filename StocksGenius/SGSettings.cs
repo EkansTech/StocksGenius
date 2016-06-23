@@ -41,19 +41,17 @@ namespace StocksGenius
 
         public static DataSourceTypes DataSourceType = DataSourceTypes.Yahoo;
 
-        public static double MinChangeForDown = 0;
+        public static double MinChangeForDown = -0.05;
 
-        public static double MinChangeForUp = 0;
+        public static double MinChangeForUp = 0.15;
 
-        public const string RootDiretory = @"C:\Ekans\Stocks\";
+        public static int MinNumOfDowns = 5;
 
-        public static string Workspace = @"C:\Ekans\Stocks\iForex\";
+        public static int MinNumOfUps = 5;
 
         public const string InvestmentsFileName = "Investments.csv";
 
         public const string InvestmentsFile = "Investments.csv";
-
-        public const string StockSettingsIni = "StocksSettings.ini";
 
         public const string WorkspaceSettingsIni = "WorkspaceSettings.ini";
 

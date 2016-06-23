@@ -70,12 +70,26 @@ namespace StocksData
                     metaData.Code = lineData[0];
                     metaData.Name = lineData[1];
                     metaData.FileName = lineData[2] + ".csv";
-                    metaData.ID = lineData[3];
+                    if (lineData.Length > 3)
+                    {
+                        metaData.ID = lineData[3];
+                    }
                     metaData.Workspace = workspace;
                     metaData.SimPredictionsDir = workspace + DSSettings.SimPredictionDir;
 
 
                     Add(lineData[0], metaData);
+                }
+            }
+        }
+
+        public void SaveToFile(string filePath, string workspace)
+        {
+            using (StreamWriter writer = new StreamWriter(filePath))
+            {
+                foreach (string dataSetCode in Keys)
+                {
+                    writer.WriteLine("{0},{1},{2},{3}", this[dataSetCode].Code, this[dataSetCode].Name, this[dataSetCode].FileName.Replace(".csv", ""), this[dataSetCode].ID);
                 }
             }
         }

@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace StocksGenius
+namespace StocksData
 {
     /// <summary>
     /// Create a New INI file to store or load data
@@ -72,6 +72,14 @@ namespace StocksGenius
         public double IniReadDoubleValue(string Section, string Key)
         {
             return Convert.ToDouble(IniReadValue(Section, Key));
+        }
+        public void IniReadDoubleValue(string Section, string Key, ref double value)
+        {
+            string valueString = IniReadValue(Section, Key);
+            if (!string.IsNullOrWhiteSpace(valueString))
+            {
+                value = Convert.ToDouble(value);
+            }
         }
         public int IniReadIntValue(string Section, string Key)
         {

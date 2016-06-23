@@ -67,6 +67,12 @@ namespace StocksData
             }
         }
 
+
+        public override Dictionary<string, double> GetTodayOpenData(DataSetsMetaData metaData)
+        {
+            return null;
+        }
+
         public override void UpdateDataSets(string workingDirectory, DataSetsMetaData metaData)
         {
             throw new NotImplementedException();

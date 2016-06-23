@@ -42,8 +42,10 @@ namespace StocksData
     {
         Quandl,
         Yahoo,
+        Google,
         Xignite,
         Bloomberg,
+        Plus500,
     }
 
     public struct ChangeMap

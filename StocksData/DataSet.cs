@@ -72,6 +72,11 @@ namespace StocksData
         {
         }
 
+        public DataSet(string dataSetCode)
+        {
+            m_DataSetCode = dataSetCode;
+        }
+
         public DataSet(string dataSetCode, string filePath, TestDataAction testDataAction = TestDataAction.None, DateTime dateUpTo = default(DateTime), int relevantX = 60, TimeType timeType = TimeType.Month)
         {
             LoadDataFromFile(filePath);
@@ -320,6 +325,11 @@ namespace StocksData
 
             MapDates();
 
+            if (date.Ticks > this[(int)DataColumns.Date])
+            {
+                return 0;
+            }
+
             return -1;
         }
 
@@ -427,7 +437,7 @@ namespace StocksData
 
             foreach (int dataColumn in m_ColumnsMap.Keys.OrderBy(x => m_ColumnsMap[x]))
             {               
-                if (string.IsNullOrWhiteSpace(data[dataColumn]) || ((int)DataColumns.Volume == m_ColumnsMap[dataColumn] && Convert.ToDouble(data[dataColumn]) == 0.0))
+                if (string.IsNullOrWhiteSpace(data[dataColumn]))// || ((int)DataColumns.Volume == m_ColumnsMap[dataColumn] && Convert.ToDouble(data[dataColumn]) == 0.0))
                 {
                     return false;
                 }
@@ -506,6 +516,24 @@ namespace StocksData
             }
 
             if (m_DateMap[day] == m_DateMap[day.AddDays(-1)])
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool IsTradableDay(DateTime day)
+        {
+            if (!ContainsTradeDay(day))
+            {
+                return false;
+            }
+
+            int dayNum = GetDayNum(day);
+            if (GetData(dayNum, DataColumns.Open) == GetData(dayNum, DataColumns.High)
+                && GetData(dayNum, DataColumns.Open) == GetData(dayNum, DataColumns.Low)
+                && GetData(dayNum, DataColumns.Open) == GetData(dayNum, DataColumns.Close))
             {
                 return false;
             }

@@ -153,6 +153,11 @@ namespace StocksData
             }
         }
 
+        public override Dictionary<string, double> GetTodayOpenData(DataSetsMetaData metaData)
+        {
+            return null;
+        }
+
         #endregion
 
         #region Private Methods

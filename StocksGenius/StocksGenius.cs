@@ -13,7 +13,7 @@ namespace StocksGenius
     {
         #region Members
 
-        private StocksData.StocksData m_StocksData = new StocksData.StocksData(SGSettings.Workspace, SGSettings.DataSourceType);
+        private StocksData.StocksData m_StocksData = new StocksData.StocksData(DSSettings.Workspace, SGSettings.DataSourceType);
         private List<PredictionRecord> m_RelevantPredictionsRecords;
 
         #endregion
@@ -34,7 +34,7 @@ namespace StocksGenius
 
         public void UpdateDataSets()
         {
-            m_StocksData.DataSource.UpdateDataSets(SGSettings.Workspace, m_StocksData.MetaData);
+            m_StocksData.DataSource.UpdateDataSets(DSSettings.Workspace, m_StocksData.MetaData);
         }
 
         public void BuildPredictions()
@@ -74,54 +74,54 @@ namespace StocksGenius
 
         public void Simulate()
         {
-            PredictionsSimulator predictionsSimulator = new PredictionsSimulator(m_StocksData.MetaData, SGSettings.Workspace);
+            PredictionsSimulator predictionsSimulator = new PredictionsSimulator(m_StocksData.MetaData, DSSettings.Workspace);
             //analyzerSimulator.TestAnalyzeResults(stocksDataPath + iForexTestAnalyzerFolder);
             //Log.ConnectToConsole = false;
             predictionsSimulator.Simulate();
 
             //Console.Write(Log.ToString());
-            //Log.SaveLogToFile(SGSettings.Workspace + "PredictionsSimulator.log");
+            //Log.SaveLogToFile(DSSettings.Workspace + "PredictionsSimulator.log");
 
-            SimRecorder.SaveSummary(SGSettings.Workspace, "PredicrionSimSummary");
+            SimRecorder.SaveSummary(DSSettings.Workspace, "PredicrionSimSummary");
 
             return;
         }
 
         public void SimulateCombinedPredictions()
         {
-            CombinedPredictionsSimulator combinedPredictionsSimulator = new CombinedPredictionsSimulator(m_StocksData.MetaData, SGSettings.Workspace);
+            CombinedPredictionsSimulator combinedPredictionsSimulator = new CombinedPredictionsSimulator(m_StocksData.MetaData, DSSettings.Workspace);
             combinedPredictionsSimulator.Simulate();
 
             //Console.Write(Log.ToString());
-            Log.SaveLogToFile(SGSettings.Workspace + "CombinedPredictionsSimulator.log");
+            Log.SaveLogToFile(DSSettings.Workspace + "CombinedPredictionsSimulator.log");
 
-            SimRecorder.SaveSummary(SGSettings.Workspace, "CombinedPredictionsSimSummary");
+            SimRecorder.SaveSummary(DSSettings.Workspace, "CombinedPredictionsSimSummary");
         }
 
         public void SimulateModel()
         {
-            StockSimulation stockSimulation = new StockSimulation(m_StocksData.MetaData, SGSettings.Workspace);
+            StockSimulation stockSimulation = new StockSimulation(m_StocksData.MetaData, DSSettings.Workspace);
             //analyzerSimulator.TestAnalyzeResults(stocksDataPath + iForexTestAnalyzerFolder);
             //Log.ConnectToConsole = false;
             stockSimulation.Simulate();
 
             //Console.Write(Log.ToString());
-            //Log.SaveLogToFile(SGSettings.Workspace + "StocksSimulation.log");
+            //Log.SaveLogToFile(DSSettings.Workspace + "StocksSimulation.log");
 
 
-            StockRecorder.SaveSummary(SGSettings.Workspace, "StockSimSummary");
+            StockRecorder.SaveSummary(DSSettings.Workspace, "StockSimSummary");
 
             return;
         }
 
         public void AnalyzePredictions()
         {
-            PredictionsAnalyze.AnalyzePredictions(SGSettings.Workspace, m_StocksData.MetaData);
+            PredictionsAnalyze.AnalyzePredictions(DSSettings.Workspace, m_StocksData.MetaData);
         }
 
         public void RunInvestor()
         {
-            m_StocksData = new StocksData.StocksData(SGSettings.Workspace, SGSettings.DataSourceType, false);
+            m_StocksData = new StocksData.StocksData(DSSettings.Workspace, SGSettings.DataSourceType, false);
             Investor investor = new Investor(m_StocksData);
             investor.RunInvestor();
         }

@@ -21,6 +21,8 @@ namespace StocksData
 
         public abstract void UpdateDataSets(string workingDirectory, DataSetsMetaData metaData);
 
+        public abstract Dictionary<string, double> GetTodayOpenData(DataSetsMetaData metaData);
+
         #endregion
 
         #region Protected Methods

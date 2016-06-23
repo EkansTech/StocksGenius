@@ -19,6 +19,11 @@ namespace StocksData
             throw new NotImplementedException();
         }
 
+        public override Dictionary<string, double> GetTodayOpenData(DataSetsMetaData metaData)
+        {
+            return null;
+        }
+
         #endregion
     }
 }

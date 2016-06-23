@@ -14,6 +14,8 @@ namespace StocksData
 
         public const string DataSetsDir = "DataSets\\";
 
+        public const string DataSetsSourcesDir = "DataSetsSources\\";
+
         public const string PriceDataSetsDir = "DataSets\\";
 
         public const string PredictionDir = "Predictions\\";
@@ -25,6 +27,12 @@ namespace StocksData
         public const string DataSetsMetaDataFile = "datasets-metadata.csv";
 
         public const string CombinedDataPredictionsFile = "CombinedDataPredictions.csv";
+
+        public const string RootDiretory = @"C:\Ekans\Stocks\";
+
+        public const string StockSettingsIni = "StocksSettings.ini";
+
+        public static string Workspace = @"C:\Ekans\Stocks\iForex-Google\";
 
         public static double MinimumChangesForPredictionRatio = 0.01;
 

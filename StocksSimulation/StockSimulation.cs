@@ -99,6 +99,15 @@ namespace StocksSimulation
         }
         public double TotalValue { get { return m_RealMoney + InvestmentsValue; } }
 
+        private double m_TotalProfit;
+
+        public double TotalProfit
+        {
+            get { return m_TotalProfit; }
+            set { m_TotalProfit = value; }
+        }
+
+
         public int NumOfInvestments { get { return Investments.Count(); } }
 
         public static DateTime StartDate { get; set; }
@@ -151,27 +160,27 @@ namespace StocksSimulation
             MinChangeForDown = DSSettings.EffectivePredictionResult;
             //ReloadPredictions(StartDate);
 
-            for (int minDaysOfDown = 1; minDaysOfDown <= 1; minDaysOfDown += 2)
+            for (int minDaysOfDown = 10; minDaysOfDown <= 16; minDaysOfDown += 6)
             {
                 MinDaysOfDown = minDaysOfDown;
-                for (int maxDaysUntilProfit = 1; maxDaysUntilProfit <= 10; maxDaysUntilProfit += 1)
+                for (double minChangeForDown = -0.15; minChangeForDown >= -0.24; minChangeForDown -= 0.09)
                 {
-                    MaxDaysUntilProfit = maxDaysUntilProfit;
-                    for (double minChangeForUp = 0.00; minChangeForUp <= 0.3; minChangeForUp += 0.03)
+                    MinChangeForDown = minChangeForDown;
+                    for (byte minDaysOfUp = 12; minDaysOfUp <= 18; minDaysOfUp += 6)
                     {
-                        MinChangeForUp = minChangeForUp;
-                        for (double minChangeForDown = -0.0; minChangeForDown >= -0.3; minChangeForDown -= 0.03)
+                        MinDaysOfUp = minDaysOfUp;
+                        for (double minChangeForUp = 0.15; minChangeForUp <= 0.27; minChangeForUp += 0.12)
                         {
-                            MinChangeForDown = minChangeForDown;
-                            for (byte minDaysOfUp = 0; minDaysOfUp <= 0; minDaysOfUp += 2)
+                            MinChangeForUp = minChangeForUp;
+                            for (int maxDaysUntilProfit = 0; maxDaysUntilProfit <= 0; maxDaysUntilProfit += 12)
                             {
-                                MinDaysOfUp = minDaysOfUp;
-                                for (byte maxPredictedRange = SimSettings.MaxPredictedRange; maxPredictedRange <= SimSettings.MaxPredictedRange; maxPredictedRange += 1)
+                                MaxDaysUntilProfit = maxDaysUntilProfit;
+                                for (double minProfitRatio = 0.00; minProfitRatio <= 0.04; minProfitRatio += 0.04)
                                 {
-                                    MaxPredictedRange = maxPredictedRange;
-                                    for (double minProfitRatio = 0.00; minProfitRatio <= 0.04; minProfitRatio += 0.02)
+                                    MinProfitRatio = minProfitRatio;
+                                    for (byte maxPredictedRange = SimSettings.MaxPredictedRange; maxPredictedRange <= SimSettings.MaxPredictedRange; maxPredictedRange += 1)
                                     {
-                                        MinProfitRatio = minProfitRatio;
+                                        MaxPredictedRange = maxPredictedRange;
                                         for (double maxLooseRatio = 0; maxLooseRatio >= 0; maxLooseRatio -= 0.1)
                                         {
                                             MaxLooseRatio = maxLooseRatio;
@@ -179,8 +188,9 @@ namespace StocksSimulation
                                             {
                                                 for (int safeDaysNum = 5; safeDaysNum <= 5; safeDaysNum++)
                                                 {
-                                                    for (int maxNumOfInvestments = 100; maxNumOfInvestments <= 100; maxNumOfInvestments++)
+                                                    for (int maxNumOfInvestments = 10; maxNumOfInvestments <= 10; maxNumOfInvestments++)
                                                     {
+                                                        MaxNumOfInvestments = maxNumOfInvestments;
                                                         if (SimSettings.SimulatePerStock)
                                                         {
                                                             Dictionary<string, DataSet> tempDataSets = DataSets;
@@ -227,6 +237,8 @@ namespace StocksSimulation
             m_TotalValues.Clear();
             m_LastMaxDay = 0;
             m_TradableDayNum = 0;
+            NumOfDayWithoutProift = 0;
+            m_TotalProfit = 0;
 
             foreach (string dataSetName in DataSets.Keys)
             {
@@ -282,7 +294,7 @@ namespace StocksSimulation
 
             m_TotalValues.Add(TotalValue);
 
-            if (m_TotalValues[0] > m_TotalValues[m_LastMaxDay])
+            if (m_TotalValues.Last() > m_TotalValues[m_LastMaxDay])
             {
                 m_LastMaxDay = m_TradableDayNum;
             }
@@ -313,7 +325,7 @@ namespace StocksSimulation
         {
             foreach (DataSet dataSet in DataSets.Values)
             {
-                if (dataSet.ContainsTradeDay(day))
+                if (dataSet.IsTradableDay(day))
                 {
                     m_TradableDataSets.Add(dataSet);
                 }
@@ -364,10 +376,11 @@ namespace StocksSimulation
             }
 
             StocksTotalProfit[investment.DataSet.DataSetCode] = investment.Release(day, TotalValue, StocksTotalProfit[investment.DataSet.DataSetCode]);
+            m_TotalProfit += investment.GetProfit(day);
             Investments.Remove(investment);
 
             Log.AddMessage("Release investment of {0} with prediction {1}:", investment.DataSet.DataSetCode, investment.PredictedChange.ToString());
-            Log.AddMessage("Release profit {0}, total value {1}, correctness {2}, {3} predictions", investment.GetProfit(day).ToString("0.00"),
+            Log.AddMessage("Release profit {0}, total value {1}, change {2}, {3} predictions", investment.GetProfit(day).ToString("0.00"),
                 TotalValue.ToString("0.00"), investment.Analyze.AverageCorrectness.ToString("0.00"), investment.Analyze.NumOfPredictions);
         }
 
@@ -409,6 +422,8 @@ namespace StocksSimulation
                 return;
             }
 
+            List<Analyze> potentialAnalyzes = new List<Analyze>();
+
             foreach (DataSet dataSet in m_TradableDataSets)
             {
                 if (dataSet.GetDate(0) == day)
@@ -428,7 +443,7 @@ namespace StocksSimulation
                     }
                     else
                     {
-                        if (numOfDowns > 0 && (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open) < MinChangeForDown)
+                        if (numOfDowns >= MinDaysOfDown || (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfDowns, DataSet.DataColumns.Open) < MinChangeForDown)
                         {
                             Analyze analyze = new Analyze()
                             {
@@ -438,7 +453,8 @@ namespace StocksSimulation
                                 NumOfPredictions = numOfDowns,
                                 PredictedChange = new CombinationItem(1, DataItem.OpenUp, 0, 0)
                             };
-                            AddInvestment(day, analyze, 0);
+                            //AddInvestment(day, analyze, 0);
+                            potentialAnalyzes.Add(analyze);
                         }
                         else
                         {
@@ -456,7 +472,7 @@ namespace StocksSimulation
                     }
                     else
                     {
-                        if (numOfUps > 0 && (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open) > MinChangeForUp)
+                        if (numOfUps >= MinDaysOfUp || (dataSet.GetData(dayNum, DataSet.DataColumns.Open) - dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open)) / dataSet.GetData(dayNum + numOfUps, DataSet.DataColumns.Open) > MinChangeForUp)
                         {
                             Analyze analyze = new Analyze()
                             {
@@ -466,7 +482,8 @@ namespace StocksSimulation
                                 NumOfPredictions = numOfUps,
                                 PredictedChange = new CombinationItem(1, DataItem.OpenDown, 0, 0)
                             };
-                            AddInvestment(day, analyze, 0);
+                            //AddInvestment(day, analyze, 0);
+                            potentialAnalyzes.Add(analyze);
                         }
                         else
                         {
@@ -475,7 +492,22 @@ namespace StocksSimulation
                         break;
                     }
                 }
-            }            
+
+            }
+
+            potentialAnalyzes = potentialAnalyzes.OrderByDescending(x => (x.AverageCorrectness < 0 ? -x.AverageCorrectness * 100 + 10 : x.AverageCorrectness * 100) + x.NumOfPredictions).ToList();
+
+            Analyze secondChance;
+            //if (Investments.Count > 0 && (secondChance = potentialAnalyzes.FirstOrDefault(x => x.DataSet == Investments.First().DataSet)) != null)
+            //{
+            //    AddInvestment(day, secondChance, 0);
+            //    return;
+            //}
+            //else
+            if (Investments.Count == 0 && potentialAnalyzes.Count > 0)
+            {
+                AddInvestment(day, potentialAnalyzes.First(), 0);
+            }
         }
 
         private bool IsGoodInvestment(DataSet dataSet, BuySell investmentType, DateTime day)

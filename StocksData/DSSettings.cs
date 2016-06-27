@@ -20,6 +20,8 @@ namespace StocksData
 
         public const string PredictionDir = "Predictions\\";
 
+        public const string AnalyticsDir = "Analytics\\";
+
         public const string SimPredictionDir = "SimPredictions\\";
                             
         public const string LatestPredictionsDir = "LatestPredictions\\";

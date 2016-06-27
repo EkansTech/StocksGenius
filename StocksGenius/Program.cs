@@ -92,11 +92,9 @@ namespace StocksGenius
             SimSettings.MinPredictedRange = settings.IniReadByteValue("Simulation", "MinPredictedRange");
             SimSettings.MaxPredictedRange = settings.IniReadByteValue("Simulation", "MaxPredictedRange");
             SimSettings.TestAllRanges = settings.IniReadBoolValue("Simulation", "TestAllRanges");
-            SimSettings.SimulatePerStock = settings.IniReadBoolValue("Simulation", "SimulatePerStock"); 
-
-
-            SimSettings.BuySellPenalty = SGSettings.BuySellPenalty;
-
+            SimSettings.SimulatePerStock = settings.IniReadBoolValue("Simulation", "SimulatePerStock");
+            SimSettings.BuySellPenalty = settings.IniReadDoubleValue("Simulation", "BuySellPenalty");
+            
             int i = 1;
             string predictionItem;
             while (!string.IsNullOrEmpty(predictionItem = settings.IniReadValue("PredictionItems", string.Format("Item{0}", i))))

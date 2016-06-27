@@ -25,6 +25,9 @@ namespace StocksSimulation
     {
         NoReason,
 
+        LimitLooseReopen,
+        
+
         SamePredictions,
 
         EndOfPeriod,
@@ -34,6 +37,8 @@ namespace StocksSimulation
         EndOfTrade,
         MaxInvestmentLive,
         SafeMode,
+        ProfitLimit,
+        LooseLimit,
     }
 
 }

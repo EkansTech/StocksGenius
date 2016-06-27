@@ -341,7 +341,7 @@ namespace StocksGenius
                 }        
             }
 
-            potentialInvestments = potentialInvestments.OrderByDescending(x => (x.AverageCorrectness > 0 ? x.AverageCorrectness : -x.AverageCorrectness + 10) * 100 + x.NumOfPredictions).ToList();
+            potentialInvestments = potentialInvestments.OrderByDescending(x => (x.AverageCorrectness > 0 ? x.AverageCorrectness : -x.AverageCorrectness + 0.05) * 100 + x.NumOfPredictions).ToList();
             Dictionary<int, Analyze> actionsMap = potentialInvestments.ToDictionary(x => potentialInvestments.IndexOf(x) + 1);
             foreach (int analyzeNum in actionsMap.Keys)
             {

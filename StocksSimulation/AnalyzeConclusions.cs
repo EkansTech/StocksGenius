@@ -18,7 +18,7 @@ namespace StocksSimulation
             }
             else
             {
-                return y.NumOfPredictions - x.NumOfPredictions;
+                return y.SequenceLength - x.SequenceLength;
                 // return (int)((y.AverageCorrectness * 100) - (x.AverageCorrectness * 100));
             }
         }
@@ -29,13 +29,17 @@ namespace StocksSimulation
 
         public DataSet DataSet { get; set; }
 
-        public int NumOfPredictions { get; set; }
-
+        public int SequenceLength { get; set; }
+         
         public CombinationItem PredictedChange { get; set; }
 
-        public double AverageCorrectness { get; set; }
+        public double Change { get; set; }
+
+        public double LastChange { get; set; }
 
         public string DataSetName { get; set; }
+
+        public double MinProfitRatio { get; set; }
 
         public bool IsPositiveInvestment
         {
@@ -58,19 +62,19 @@ namespace StocksSimulation
 
         public Analyze(PredictionRecord record)
         {
-            AverageCorrectness = record.PredictionCorrectness;
+            Change = record.PredictionCorrectness;
             DataSet = record.DataSet;
             DataSetName = DataSet.DataSetCode;
-            NumOfPredictions = 1;
+            SequenceLength = 1;
             PredictedChange = record.PredictedChange;
         }
 
         public Analyze(IEnumerable<PredictionRecord> records)
         {
-            AverageCorrectness = records.Average(x => x.PredictionCorrectness);
+            Change = records.Average(x => x.PredictionCorrectness);
             DataSet = records.First().DataSet;
             DataSetName = DataSet.DataSetCode;
-            NumOfPredictions = records.Count();
+            SequenceLength = records.Count();
             PredictedChange = records.First().PredictedChange;
         }
 
@@ -80,8 +84,8 @@ namespace StocksSimulation
 
         public void Update(PredictionRecord record)
         {
-            AverageCorrectness = (AverageCorrectness * NumOfPredictions + record.PredictionCorrectness) / (NumOfPredictions + 1);
-            NumOfPredictions++;
+            Change = (Change * SequenceLength + record.PredictionCorrectness) / (SequenceLength + 1);
+            SequenceLength++;
         }
 
         public int CompareTo(object obj)
@@ -297,8 +301,8 @@ namespace StocksSimulation
                                 dataSet.DataSetCode,
                                 combinationItem.DataItem,
                                 combinationItem.Range,
-                                analyze.AverageCorrectness,
-                                analyze.NumOfPredictions);
+                                analyze.Change,
+                                analyze.SequenceLength);
                         }
                     }
                 }

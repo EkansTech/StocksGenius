@@ -557,7 +557,7 @@ namespace StocksSimulation
         {
             foreach (Investment investment in Investments.Where(x => m_TradableDataSets.Contains(x.DataSet)).OrderBy(x => x.ID))
             {
-                investment.UpdateInvestment(dailyAnalyzes, day, TotalValue, RealMoney, StocksTotalProfit[investment.DataSet.DataSetCode]);
+                investment.UpdateInvestment(dailyAnalyzes, day, TotalValue, 0, RealMoney, StocksTotalProfit[investment.DataSet.DataSetCode]);
                 m_InvestmentAnalyzis.Add(investment, day);
             }
         }
@@ -635,12 +635,12 @@ namespace StocksSimulation
             //    }
             //}
 
-            StocksTotalProfit[investment.DataSet.DataSetCode] = investment.Release(day, TotalValue, StocksTotalProfit[investment.DataSet.DataSetCode]);
+            StocksTotalProfit[investment.DataSet.DataSetCode] = investment.Release(day, TotalValue, 0, StocksTotalProfit[investment.DataSet.DataSetCode]);
             Investments.Remove(investment);
 
             Log.AddMessage("Release investment of {0} with prediction {1}:", investment.DataSet.DataSetCode, investment.PredictedChange.ToString());
             Log.AddMessage("Release profit {0}, total value {1}, correctness {2}, {3} predictions", investment.GetProfit(day).ToString("0.00"), 
-                TotalValue.ToString("0.00"), investment.Analyze.AverageCorrectness.ToString("0.00"), investment.Analyze.NumOfPredictions);
+                TotalValue.ToString("0.00"), investment.Analyze.Change.ToString("0.00"), investment.Analyze.SequenceLength);
         }
 
         private void AddInvestment(DateTime day, Analyze analyze, double addPercentagePrice)
@@ -655,7 +655,7 @@ namespace StocksSimulation
             {
                 return;
             }
-            Investment investment = new Investment(DataSets[analyze.DataSetName], analyze, day, TotalValue, RealMoney, StocksTotalProfit[analyze.DataSet.DataSetCode], addPercentagePrice);
+            Investment investment = new Investment(DataSets[analyze.DataSetName], analyze, day, TotalValue, 0, RealMoney, StocksTotalProfit[analyze.DataSet.DataSetCode], addPercentagePrice);
             investment.UpdateAccountOnInvestment(day, TotalValue);
             investment.UpdateRealMoneyOnInvestment(day, ref m_RealMoney);
             Investments.Add(investment);
@@ -693,7 +693,7 @@ namespace StocksSimulation
                 analyzes.AddRange(dailyAnalyzes[dataSet].Values);
             }
 
-            var orderAnalyzes = analyzes.OrderByDescending(x => x.AverageCorrectness);//OrderBy(x => x, new AnalyzeComparer());//
+            var orderAnalyzes = analyzes.OrderByDescending(x => x.Change);//OrderBy(x => x, new AnalyzeComparer());//
 
             foreach (Analyze analyze in orderAnalyzes)
             {
@@ -840,7 +840,7 @@ namespace StocksSimulation
                 {
                     Analyze conclusion = analyzeConclussions[dataset][predictedChange];
                     report += string.Format("Change of {0}, range {1}, {2} of predictions, accuracy {3}",
-                        conclusion.PredictedChange.DataItem, conclusion.PredictedChange.Range, conclusion.NumOfPredictions, conclusion.AverageCorrectness);
+                        conclusion.PredictedChange.DataItem, conclusion.PredictedChange.Range, conclusion.SequenceLength, conclusion.Change);
 
                     report += Environment.NewLine;
                 }

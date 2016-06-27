@@ -147,6 +147,41 @@ namespace StocksData
             return;
         }
 
+        public void CalculateAnalytics()
+        {
+            string analyticsDirectory = WorkingDirectory + DSSettings.AnalyticsDir;
+            if (!Directory.Exists(analyticsDirectory))
+            {
+                Directory.CreateDirectory(analyticsDirectory);
+            }
+
+            int dataSetNumber = 0;
+
+            double loadTime = 0;
+            double gpuTime = 0;
+            foreach (string dataSetCode in MetaData.Keys)
+            {
+                Console.WriteLine("Current Stock: {0}", dataSetCode);
+                Console.WriteLine("Completed {0}%", (((double)dataSetNumber) / (double)MetaData.Count * 100.0).ToString("0.00"));
+
+
+                DataSet dataSet = new DataSet(dataSetCode, MetaData[dataSetCode].DataSetFilePath);
+                DateTime timePoint = DateTime.Now;
+                DataPredictions dataPredictions = new DataPredictions(dataSet, MetaData[dataSetCode].DataPredictionsFilePath, true);
+                loadTime += (double)(DateTime.Now - timePoint).TotalMilliseconds;
+                gpuTime += dataPredictions.GPULoadTime;
+                dataPredictions.SaveDataToFile(analyticsDirectory);
+
+                dataSetNumber++;
+            }
+
+            Console.WriteLine(string.Format("Prediction time = {0}, GPU total time - {1}", loadTime / 1000, gpuTime / 1000));
+            Console.WriteLine();
+            Console.ReadKey();
+
+            return;
+        }
+
 
         public void BuildSimDataPredictions(DateTime startDate, int jump, TimeType predictionTimeType, DateTime endDate, TestDataAction testDataType = TestDataAction.LoadDataUpTo, int relevantMonths = 60, TimeType dataTimeType = TimeType.Month, string suffix = null)
         {

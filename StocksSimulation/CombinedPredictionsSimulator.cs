@@ -249,7 +249,7 @@ namespace StocksSimulation
         {
             foreach (Investment investment in Investments.OrderBy(x => x.ID))
             {
-                investment.UpdateInvestment(dailyAnalyzes, day, TotalProfit, 0.0, StocksTotalProfit[investment.DataSet.DataSetCode]);
+                investment.UpdateInvestment(dailyAnalyzes, day, TotalProfit, 0, 0.0, StocksTotalProfit[investment.DataSet.DataSetCode]);
             }
         }
 
@@ -283,10 +283,10 @@ namespace StocksSimulation
                 m_NumOfGoodInvestments++;
             }
 
-            StocksTotalProfit[investment.DataSet.DataSetCode] = investment.Release(day, ref m_TotalProfit, StocksTotalProfit[investment.DataSet.DataSetCode]);
+            StocksTotalProfit[investment.DataSet.DataSetCode] = investment.Release(day, ref m_TotalProfit, 0, StocksTotalProfit[investment.DataSet.DataSetCode]);
             Log.AddMessage("Release investment of {0} with prediction {1}:", investment.DataSet.DataSetCode, investment.PredictedChange.ToString());
             Log.AddMessage("AccountBalance {0}, release profit {1}, total profit {2}, correctness {3}, {4} predictions", AccountBallance.ToString("0.00"),
-                investment.GetProfit(day).ToString("0.00"), TotalProfit.ToString("0.00"), investment.Analyze.AverageCorrectness.ToString("0.00"), investment.Analyze.NumOfPredictions);
+                investment.GetProfit(day).ToString("0.00"), TotalProfit.ToString("0.00"), investment.Analyze.Change.ToString("0.00"), investment.Analyze.SequenceLength);
         }
 
         private void AddInvestment(DateTime day, Analyze analyze)
@@ -382,7 +382,7 @@ namespace StocksSimulation
                 {
                     Analyze conclusion = analyzeConclussions[dataset][predictedChange];
                     report += string.Format("Change of {0}, range {1}, {2} of predictions, accuracy {3}",
-                        conclusion.PredictedChange.DataItem, conclusion.PredictedChange.Range, conclusion.NumOfPredictions, conclusion.AverageCorrectness);
+                        conclusion.PredictedChange.DataItem, conclusion.PredictedChange.Range, conclusion.SequenceLength, conclusion.Change);
 
                     report += Environment.NewLine;
                 }

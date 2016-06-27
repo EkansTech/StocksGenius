@@ -78,13 +78,13 @@ namespace StocksSimulation
 
             using (StreamWriter writer = new StreamWriter(filePath))
             {
-                writer.WriteLine("SimulationDay,ID,Action,ActionReason,InvestmentDay,ReleaseDay,InvestmentType,"
-                     + "DataSetName,InvestedPrice,TodayPrice,Profit,Profit%,TotalValue,RealMoney,StockTotalProfit,DataItem,Range,NumOfPredictions,AverageCorrectness,InvestmentValue,LastChange");
+                writer.WriteLine("SimulationDay,ID,Action,ActionReason,InvestmentDay,ReleaseDay,InvestmentType,DataSetName,InvestedPrice,TodayPrice,Profit,"
+                    + "Profit%,TotalValue,TotalProfit,RealMoney,StockTotalProfit,DataItem,Range,SequenceLength,Change,InvestmentValue,LastChange");
                 foreach (DateTime day in SimulationData.Keys)
                 {
                     foreach (Investment investment in SimulationData[day])
                     {
-                        writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}%,{12},{13},{14},{15},{16},{17},{18},{19},{20}%",
+                        writer.WriteLine("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11}%,{12},{13},{14},{15},{16},{17},{18},{19},{20},{21}%",
                             day.ToShortDateString(),
                             investment.ID,
                             investment.Action,
@@ -98,14 +98,15 @@ namespace StocksSimulation
                             investment.Profit,
                             investment.ProfitPercentage(day),
                             investment.TotalValue,
+                            investment.TotalProfit,
                             investment.RealMoney,
                             investment.StockTotalProfit,
                             investment.PredictedChange.DataItem,
                             investment.PredictedChange.Range,
-                            investment.Analyze.NumOfPredictions,
-                            investment.Analyze.AverageCorrectness,
+                            investment.Analyze.SequenceLength,
+                            investment.Analyze.Change,
                             investment.GetInvestmentValue(day),
-                            (investment.GetInvestmentValue(day) - investment.GetInvestmentValue(day, 1)) / investment.GetInvestmentValue(day, 1) * 100);
+                            investment.Analyze.LastChange * 100);
                     }
                 }
             }
@@ -151,8 +152,8 @@ namespace StocksSimulation
                             investment.StockTotalProfit,
                             investment.PredictedChange.DataItem,
                             investment.PredictedChange.Range,
-                            investment.Analyze.NumOfPredictions,
-                            investment.Analyze.AverageCorrectness);
+                            investment.Analyze.SequenceLength,
+                            investment.Analyze.Change);
                     }
                 }
             }
